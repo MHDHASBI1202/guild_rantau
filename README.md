@@ -2,7 +2,7 @@
 
 Dunia fantasi komunitas di sekitar **Rumu**, monster batu yang membawa rumah kecil guild. Anggota memilih karakter, menjalankan aktivitas, dan ikut menumbuhkan kamp bersama.
 
-**Instagram:** [@guild.rantau](https://www.instagram.com/guild.rantau/) · **Website:** [Guild Rantau](https://guild-rantau-rumu.afusion807.chatgpt.site/)
+**Instagram:** [@guild.rantau](https://www.instagram.com/guild.rantau/) · **Website:** [Guild Rantau](https://guild-rantau.alah6075.workers.dev/)
 
 ## Fitur
 

@@ -8,7 +8,8 @@
   ],
   "workers_dev": true,
   "vars": {
-    "AUTH_PROVIDER": "google"
+    "AUTH_PROVIDER": "google",
+    "GOOGLE_CLIENT_ID": "607287295275-q3r81nenoi33b9t3kfkuomjh4vbr0re9.apps.googleusercontent.com"
   },
   "d1_databases": [
     {
