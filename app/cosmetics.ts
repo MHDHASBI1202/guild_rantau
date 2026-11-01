@@ -46,6 +46,18 @@ export function parseCosmetics(raw:unknown):WardrobeState{
  const title=typeof value.title==='string'&&(titles.includes(value.title)||value.title==='')?value.title:(titles[0]??'');
  return {owned,equipped,titles,title};
 }
+export function starterWardrobe(equipped?: Partial<Loadout>): WardrobeState {
+ if (equipped !== undefined) {
+  if (!equipped || typeof equipped !== 'object' || Array.isArray(equipped)) throw new Error('Loadout tidak valid');
+  for (const [s, id] of Object.entries(equipped)) {
+   if (!SLOTS.includes(s as Slot)) throw new Error('Slot tidak valid');
+   if (typeof id !== 'string') throw new Error('ID tidak valid');
+   const item = findItem(s as Slot, id);
+   if (!item || item.rarity !== 'awal') throw new Error('Item terkunci');
+  }
+ }
+ return {owned: [...STARTER], equipped: {...DEFAULT_LOADOUT, ...(equipped || {})}};
+}
 const WEIGHTS={unik:60,langka:30,legendaris:10};
 export function spinPool(owned:string[]){return ITEMS.filter(i=>i.rarity!=='awal'&&!i.barter&&!owned.includes(itemKey(i)));}
 export function spinOdds(owned:string[]){const pool=spinPool(owned);const groups=(Object.entries(WEIGHTS) as [keyof typeof WEIGHTS,number][]).filter(([r])=>pool.some(i=>i.rarity===r));const total=groups.reduce((s,[,w])=>s+w,0);return groups.map(([rarity,weight])=>({rarity,percent:weight/total*100,count:pool.filter(i=>i.rarity===rarity).length}));}

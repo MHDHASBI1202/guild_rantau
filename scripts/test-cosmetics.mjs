@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {loadGameModules} from './load-game-modules.mjs';
 const {cosmetics:c,avatar:a}=await loadGameModules();
-assert.equal(c.ITEMS.length,30);assert.equal(new Set(c.ITEMS.map(c.itemKey)).size,30);assert.equal(c.STARTER.length,10);
+assert.equal(c.ITEMS.length,34);assert.equal(new Set(c.ITEMS.map(c.itemKey)).size,34);assert.equal(c.STARTER.length,10);
 assert.deepEqual(c.starterWardrobe(),{owned:c.STARTER,equipped:c.DEFAULT_LOADOUT});
 const alternate=Object.fromEntries(c.SLOTS.map(slot=>[slot,c.ITEMS.filter(item=>item.slot===slot&&item.rarity==='awal').at(-1).id]));
 assert.deepEqual(c.starterWardrobe(alternate).equipped,alternate);
@@ -12,7 +12,7 @@ const isolated=c.starterWardrobe();isolated.owned.push('test');isolated.equipped
 assert.deepEqual(c.spinOdds(c.STARTER).map(o=>o.percent),[60,30,10]);
 const owned=[...c.STARTER];for(let i=0;i<20;i++){const item=c.drawItem(owned);assert.ok(item);assert.ok(!owned.includes(c.itemKey(item)));owned.push(c.itemKey(item));}
 assert.equal(c.drawItem(owned),null);assert.deepEqual(c.spinOdds(owned),[]);
-assert.equal(c.ticketsFor(99,1,0),0);assert.equal(c.ticketsFor(100,1,0),1);assert.equal(c.ticketsFor(300,1,1),2);assert.equal(c.ticketsFor(0,4,2),1);assert.equal(c.ticketsFor(200,4,2),1);
+assert.equal(c.ticketsFor(99,1,0),0);assert.equal(c.ticketsFor(100,1,0),1);assert.equal(c.ticketsFor(450,1,1),2);assert.equal(c.ticketsFor(0,4,2),1);assert.equal(c.ticketsFor(200,4,2),1);
 assert.deepEqual(c.parseCosmetics('{bad').equipped,c.DEFAULT_LOADOUT);
 assert.equal(c.parseCosmetics({owned:[],equipped:{topi:'mahkota'}}).equipped.topi,'peran');
 for(const role of ['Penjaga','Peramu','Penjelajah'])for(const item of c.ITEMS){
