@@ -1,6 +1,6 @@
 'use client';
 import {createCampEnvironment,type CampAnim} from './camp-environment';
-import {EMPTY_WORLD,IMPACTS,STATIONS,type WorldProgress} from './world-progress';
+import {EMPTY_WORLD,IMPACTS,stationFrame,type WorldProgress} from './world-progress';
 import type {HairStyle,SkinTone} from './appearance-options';
 import type {Gender} from './character-options';
 import {type Loadout} from './cosmetics';
@@ -422,7 +422,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
     if(reduced){const a=recentActivity(r,now),slot=slots.get(r.bed);if(a&&slot!==undefined){const [x,z]=dockPoint(a.impact,slot);o.position.set(x,.015,z);m.phase='work';m.action=a;}else{const [x,z]=ringPoint(m.angle,m.rx,m.rz);o.position.set(x,.015,z);m.phase=a?'queue':'stroll';m.action=undefined;}}
     else{const result=advanceMotion(m,[beforeX,beforeZ],r,slots.get(r.bed),now,dt);o.position.set(result.position[0],.015+(result.moving?Math.abs(Math.sin(t*5.4+i))*.018:0),result.position[1]);moving=result.moving;}
     let yaw=o.rotation.y;
-    if(m.phase==='work'&&m.action){const target=STATIONS[m.action.impact].position;yaw=Math.atan2(target[0]-o.position.x,target[1]-o.position.z);}
+    if(m.phase==='work'&&m.action){yaw=stationFrame(m.action.impact,Math.max(0,m.slot)).yaw;}
     else if(m.phase==='idle'){
      // Saat idle peran: hadap ke arah api unggun dengan gerakan menoleh santai
      const campFireX=-1.2,campFireZ=4.2;
@@ -431,7 +431,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
     else if(moving&&Math.hypot(o.position.x-beforeX,o.position.z-beforeZ)>.00001)yaw=Math.atan2(o.position.x-beforeX,o.position.z-beforeZ);
     o.rotation.y+=Math.atan2(Math.sin(yaw-o.rotation.y),Math.cos(yaw-o.rotation.y))*(reduced?1:1-Math.exp(-Math.min(dt,.1)*8));
     const activeId=m.phase==='work'?m.action?.id:(m.phase==='idle'?(m.idleAction as any):undefined);
-    animateActivity(rig,kit,t+i,activeId,m.workTime,reduced);
+    animateActivity(rig,kit,t+i,activeId,m.workTime,reduced,moving,m.phase==='work');
    });
 
    if(now-reportedAt>1000){

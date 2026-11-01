@@ -3,7 +3,7 @@ import type {HairStyle} from './appearance-options';
 export function createHair({style,role,hat,color,glasses}:{style:HairStyle;role:string;hat:string;color:string;glasses:boolean}){
  const group=new THREE.Group();group.name='Gaya rambut '+style;
  const helmet=hat==='peran'&&role==='Penjaga',hood=hat==='peran'&&role==='Peramu';
- const brim=hat==='jerami'||(hat==='peran'&&!helmet&&!hood),beret=hat==='baret',crown=hat==='kristal'||hat==='mahkota';
+ const brim=hat==='jerami'||hat==='caping'||(hat==='peran'&&!helmet&&!hood),beret=hat==='baret',crown=hat==='kristal'||hat==='mahkota';
  const mode=helmet?'helmet':hood?'hood':brim?'brim':beret?'beret':crown?'crown':'open';
  group.userData.hairFit=mode;group.userData.hairStyle=style;
  if(style==='gundul')return group;

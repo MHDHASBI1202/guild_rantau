@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import assert from 'node:assert/strict';
 import {loadGameModules} from './load-game-modules.mjs';
 const {motion:m,world:w,animation:a,avatar:v,roles,appearance,camp}=await loadGameModules();
-const now=100000;const environment=camp.createCampEnvironment({...w.EMPTY_WORLD,...Object.fromEntries(w.IMPACTS.map(i=>[i.key,6]))});environment.updateMatrixWorld(true);const furniture=environment.children.map(g=>new THREE.Box3().setFromObject(g).expandByScalar(.30));
+const now=100000;const environment=camp.createCampEnvironment({...w.EMPTY_WORLD,...Object.fromEntries(w.IMPACTS.map(i=>[i.key,6]))}).root;environment.updateMatrixWorld(true);const furniture=environment.children.map(g=>new THREE.Box3().setFromObject(g).expandByScalar(.30));
 for(const task of w.ACTIVITIES){
  const resident={bed:'QA',activity:task.activity,lastAction:now};assert.equal(m.recentActivity(resident,now).id,task.id);assert.equal(m.recentActivity(resident,now+55000),undefined);
  for(let slot=0;slot<2;slot++)for(let start=0;start<8;start++){

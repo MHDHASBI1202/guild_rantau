@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {loadGameModules} from './load-game-modules.mjs';
-const {avatar:a,animation,world:w,roles}=await loadGameModules();
+const {avatar:a,animation,world:w,roles,cosmetics:c}=await loadGameModules();
 const heldNames={Peramu:'Ikatan herbal',Penjelajah:'Peta tergulung',Perajin:'Palu perajin',Petani:'Penyiram tanaman',Penyihir:'Tongkat sihir'};
 for(const [role,name] of Object.entries(heldNames)){
  const rig=a.createAvatar({name:'QA',role,color:'#8baf9c',bed:'QA'}),tool=rig.root.getObjectByName(name);
@@ -23,5 +23,13 @@ animation.animateActivity(rig,kit,.81,'build',.81);rig.root.updateMatrixWorld(tr
 const hammerHead=kit.items.get('build').children[1],bounds=new THREE.Box3().setFromObject(hammerHead);
 assert.ok(Math.abs(bounds.min.y-(w.WORK_HEIGHT+.05))<.025,'Hammer makes contact with the workpiece without sinking through the table');
 animation.animateActivity(rig,kit,1,'plant',4,true);assert.equal(kit.particles.visible,false,'Reduced motion disables falling water and spell effects');
+animation.animateActivity(rig,kit,2,'plant',5,false,false,false);assert.equal(kit.particles.visible,false,'Idle inspection does not water an imaginary station');
 a.disposeAvatar(rig.root);
+const barterModels={rompi_pengrajin:'Rompi rimba',caping:'Caping bambu',lentera_ranting:'Lentera ranting',lumut_purba:'Permata lumut'};
+for(const role of roles.ROLES)for(const item of c.ITEMS.filter(i=>i.barter))for(const gender of ['laki-laki','perempuan']){
+ const avatar=a.createAvatar({name:'QA',role,gender,color:'#8baf9c',bed:'QA',hairStyle:'panjang',outfit:{...c.DEFAULT_LOADOUT,[item.slot]:item.id}});
+ assert.ok(avatar.root.getObjectByName(barterModels[item.id]),'Preserve the newer barter cosmetic model');
+ if(item.id==='caping')assert.equal(avatar.root.userData.hairFit,'brim','Caping uses the same fitted hair envelope as a brimmed hat');
+ a.animateAvatar(avatar,.8,true);a.disposeAvatar(avatar.root);
+}
 console.log('PASS: wrist attachments in walking poses, pinned cloak seam, exact hand reach for six roles, hammer/workpiece contact and reduced-motion effects.');
