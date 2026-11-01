@@ -245,58 +245,57 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
 
    // === Animasi Ekspresif Rumu & Aru di atas punggungnya ===
    if(rumuParts&&!reduced){
-    // 1. RUMU: Nafas dalam, langkah kaki berat, menggeleng & guncang debu batu
-    const deepBreath=Math.sin(t*1.4)*.048+Math.sin(t*.45)*.032;
+    // 1. RUMU: Gerakan lambat, anggun & megah sebagai kura-kura raksasa (tanpa getaran cepat)
+    const deepBreath=Math.sin(t*.5)*.025;
     rumuParts.root.position.y=rumuParts.baseY+deepBreath;
 
-    // Guncang debu batu setiap 18 detik:
-    const shakeCycle=t%18;
-    const isShaking=shakeCycle<2.0;
-    const dustShake=isShaking?Math.sin(shakeCycle/2.0*Math.PI)*Math.sin(t*26)*.024:0;
+    // Pergeseran tumpuan badan yang tenang dan lambat (slow majestic sway)
+    const swayX=Math.sin(t*.28)*.004;
+    const swayZ=Math.cos(t*.22)*.004;
+    const swayY=Math.sin(t*.15)*.008;
 
-    // Siklus langkah kaki berat setiap 24 detik:
-    const stepCycle=t%24;
-    const isStepping=stepCycle>7.0&&stepCycle<15.0;
-    const stepSpeed=t*2.8;
+    rumuParts.root.rotation.x=swayX;
+    rumuParts.root.rotation.z=swayZ;
+    rumuParts.root.rotation.y=swayY;
 
-    rumuParts.root.rotation.z=Math.sin(t*.55)*.012+dustShake;
-    rumuParts.root.rotation.x=Math.sin(t*.45+1.2)*.01+(isStepping?Math.sin(stepSpeed)*.014:0);
-    rumuParts.root.rotation.y=Math.sin(t*.25)*.02+dustShake*.35;
+    // Langkah kaki sangat pelan & bertahap (siklus 28 detik)
+    const stepCycle=t%28;
+    const isStepping=stepCycle>8.0&&stepCycle<18.0;
+    const stepPhase=(stepCycle-8.0)/10.0; // 0..1
+    const stepWave=isStepping?Math.sin(stepPhase*Math.PI*2)*.05:0;
 
-    // Kaki Rumu melangkah bergantian:
     if(rumuParts.feet.length>=4){
-     const liftA=isStepping?Math.max(0,Math.sin(stepSpeed))*.14:0;
-     const liftB=isStepping?Math.max(0,-Math.sin(stepSpeed))*.14:0;
+     const liftA=Math.max(0,stepWave);
+     const liftB=Math.max(0,-stepWave);
      rumuParts.feet[0].position.y=rumuParts.feetBaseY[0]+liftA;
-     rumuParts.feet[2].position.y=rumuParts.feetBaseY[2]+liftA*.7;
+     rumuParts.feet[2].position.y=rumuParts.feetBaseY[2]+liftA*.6;
      rumuParts.feet[1].position.y=rumuParts.feetBaseY[1]+liftB;
-     rumuParts.feet[3].position.y=rumuParts.feetBaseY[3]+liftB*.7;
+     rumuParts.feet[3].position.y=rumuParts.feetBaseY[3]+liftB*.6;
     }
 
-    // Kepala Rumu menoleh, mengangguk, & mengamati sekeliling:
+    // Kepala Rumu menoleh perlahan & mengangguk anggun:
     if(rumuParts.head){
-     const nod=Math.sin(t*.75)*.06+Math.sin(t*.22)*.08;
-     const lookAround=Math.sin(t*.32)*.18+Math.sin(t*.12)*.12;
+     const nod=Math.sin(t*.35)*.035;
+     const lookAround=Math.sin(t*.18)*.09+Math.sin(t*.08)*.05;
      rumuParts.head.rotation.y=rumuParts.baseHeadRot.y+lookAround;
      rumuParts.head.rotation.x=rumuParts.baseHeadRot.x+nod;
-     rumuParts.head.rotation.z=rumuParts.baseHeadRot.z+Math.sin(t*.42)*.035;
+     rumuParts.head.rotation.z=rumuParts.baseHeadRot.z+Math.sin(t*.22)*.015;
     }
 
-    // Alis batu Rumu bergerak ekspresif:
+    // Alis batu Rumu bergerak sangat halus & alami:
     rumuParts.eyebrows.forEach((eb,idx)=>{
-     const wiggle=Math.sin(t*2.5+idx*Math.PI)*.05;
-     eb.rotation.z=wiggle;
-     eb.position.y=(Math.sin(t*.8+idx)>.6?.035:0)+wiggle*.2;
+     const ebOffset=Math.sin(t*.4+idx*1.5)*.015;
+     eb.rotation.z=ebOffset;
     });
 
-    // Bendera Guild & Lentera:
+    // Bendera Guild & Lentera bergoyang kena semilir angin:
     if(rumuParts.flag){
-     rumuParts.flag.rotation.y=Math.sin(t*4.2)*.22+Math.sin(t*7.1)*.08;
-     rumuParts.flag.rotation.z=Math.sin(t*3.1+.5)*.1;
+     rumuParts.flag.rotation.y=Math.sin(t*2.0)*.14+Math.sin(t*3.2)*.05;
+     rumuParts.flag.rotation.z=Math.sin(t*1.6+.4)*.06;
     }
     if(rumuParts.lantern){
-     rumuParts.lantern.rotation.z=Math.sin(t*2.2)*.12+Math.sin(t*.7)*.06;
-     rumuParts.lantern.rotation.x=Math.sin(t*1.8)*.08;
+     rumuParts.lantern.rotation.z=Math.sin(t*1.4)*.07+Math.sin(t*.5)*.03;
+     rumuParts.lantern.rotation.x=Math.sin(t*1.1)*.04;
     }
 
     // 2. ARU: Bergerak Hidup dengan Berbagai Variasi Aksi (Cycle ~16 detik)
@@ -305,25 +304,25 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
 
      if(aruCycle<4.5){
       // --- FASE 1: Melambaikan tangan menyapa para petualang ---
-      const waveT=t*6.5;
+      const waveT=t*3.8;
       if(rumuParts.aruSleeves.length>=2){
-       rumuParts.aruSleeves[1].rotation.x=-1.15+Math.sin(t*3.5)*.12;
+       rumuParts.aruSleeves[1].rotation.x=-1.1+Math.sin(t*2.0)*.08;
        rumuParts.aruSleeves[1].rotation.z=.55;
        rumuParts.aruSleeves[0].rotation.x=-.3;
        rumuParts.aruSleeves[0].rotation.z=-.25;
       }
       if(rumuParts.aruForearms.length>=2){
-       rumuParts.aruForearms[1].rotation.z=.5+Math.sin(waveT)*.42;
+       rumuParts.aruForearms[1].rotation.z=.5+Math.sin(waveT)*.32;
        rumuParts.aruForearms[1].rotation.x=.2;
        rumuParts.aruForearms[0].rotation.z=0;
       }
       if(rumuParts.aruPalms.length>=2){
-       rumuParts.aruPalms[1].rotation.y=Math.sin(waveT*1.1)*.35;
+       rumuParts.aruPalms[1].rotation.y=Math.sin(waveT)*.25;
       }
-      rumuParts.aru.position.y=rumuParts.baseAruY+.02+Math.sin(t*4.5)*.016;
+      rumuParts.aru.position.y=rumuParts.baseAruY+Math.sin(t*1.5)*.006;
       rumuParts.aru.position.z=rumuParts.baseAruZ;
-      rumuParts.aru.rotation.y=rumuParts.baseAruRotY+Math.sin(t*1.5)*.12;
-      rumuParts.aru.rotation.x=.08;
+      rumuParts.aru.rotation.y=rumuParts.baseAruRotY+Math.sin(t*1.2)*.08;
+      rumuParts.aru.rotation.x=.06;
      }else if(aruCycle<8.5){
       // --- FASE 2: Mencondongkan badan ke depan mengamati cakrawala ---
       rumuParts.aru.position.y=rumuParts.baseAruY+Math.sin(t*1.8)*.008;
