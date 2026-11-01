@@ -43,6 +43,13 @@
       "when": 1793469938312,
       "tag": "0005_mushy_starbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793515726388,
+      "tag": "0006_bored_trauma",
+      "breakpoints": true
     }
   ]
 }

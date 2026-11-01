@@ -1,0 +1,18 @@
+'use client';
+import {useEffect,useRef,useState} from 'react';
+import {Tent,ArrowLeft} from 'lucide-react';
+type GoogleApi={accounts:{id:{initialize:(options:Record<string,unknown>)=>void;renderButton:(el:HTMLElement,options:Record<string,unknown>)=>void}}};
+declare global{interface Window{google?:GoogleApi}}
+export default function SignIn(){
+ const button=useRef<HTMLDivElement>(null),[message,setMessage]=useState('Menyiapkan tombol Google…'),[busy,setBusy]=useState(false),[local,setLocal]=useState(false);
+ useEffect(()=>{let cancelled=false;const init=async()=>{try{
+  const response=await fetch('/api/auth/nonce',{cache:'no-store'}),config=await response.json() as {available?:boolean;local?:boolean;clientId?:string;nonce?:string};if(cancelled)return;
+  if(config.local){setLocal(true);setMessage('Preview ini memakai akun simulasi lokal.');return;}
+  if(!response.ok||!config.available){setMessage('Login Google sedang disiapkan oleh pengelola. Dunia tetap bisa dilihat melalui beranda.');return;}
+  const show=()=>{if(cancelled||!button.current||!window.google)return;window.google.accounts.id.initialize({client_id:config.clientId,nonce:config.nonce,auto_select:false,ux_mode:'popup',use_fedcm_for_button:true,callback:async(result:{credential:string})=>{
+   setBusy(true);setMessage('Memverifikasi akun Google…');try{const r=await fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:result.credential})});const data=await r.json() as {error?:string};if(!r.ok)throw Error(data.error??'Gagal masuk.');const value=new URLSearchParams(location.search).get('return_to')??'/';location.assign(value.startsWith('/')&&!value.startsWith('//')&&!value.includes('\\')?value:'/');}catch(e){setBusy(false);setMessage(e instanceof Error?e.message:'Gagal masuk. Muat ulang dan coba lagi.');}
+  }});window.google.accounts.id.renderButton(button.current,{theme:'outline',size:'large',text:'continue_with',shape:'pill',width:290,locale:'id'});setMessage('Pilih akun Google untuk melanjutkan perjalananmu.');};
+  if(window.google)show();else{let script=document.querySelector<HTMLScriptElement>('script[data-guild-google]');if(!script){script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.dataset.guildGoogle='true';document.head.appendChild(script);}script.addEventListener('load',show,{once:true});script.addEventListener('error',()=>setMessage('Tombol Google gagal dimuat. Muat ulang halaman dan coba lagi.'),{once:true});}
+ }catch{if(!cancelled)setMessage('Tidak dapat terhubung. Muat ulang halaman dan coba lagi.');}};init();return()=>{cancelled=true;};},[]);
+ return <main className="auth-page"><section className="auth-card"><a href="/" className="text-button"><ArrowLeft size={15}/>Kembali ke dunia</a><div className="modal-symbol"><Tent size={34}/></div><span className="eyebrow">GUILD RANTAU</span><h1>Perjalananmu<br/><em>dimulai di sini.</em></h1><p>Satu akun Google, satu karakter. XP, koleksi, dan kisahmu tersimpan untuk kunjungan berikutnya.</p><div ref={button} className="google-button" aria-busy={busy}/>{local&&<a className="primary full" href="/signin-with-chatgpt?return_to=/">Masuk akun uji lokal</a>}<p className="auth-status" role="status">{message}</p><small>Kami memakai identitas Google untuk login. Nama karakter dan aktivitasmu tampil di guild; emailmu tidak ditampilkan kepada pemain lain.</small><a className="text-button auth-privacy" href="/privasi">Privasi dan penghapusan data</a></section></main>;
+}

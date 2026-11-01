@@ -28,3 +28,10 @@ export const worldEvents=sqliteTable('world_events',{
  id:text('id').primaryKey(),memberId:text('member_id').notNull().references(()=>members.id,{onDelete:'cascade'}),
  action:text('action').notNull(),role:text('role').notNull(),amount:integer('amount').notNull(),attemptId:text('attempt_id').notNull(),createdAt:integer('created_at').notNull(),
 },table=>[index('world_events_time').on(table.createdAt)]);
+
+export const authSessions=sqliteTable('auth_sessions',{
+ tokenHash:text('token_hash').primaryKey(),userId:text('user_id').notNull(),email:text('email').notNull(),name:text('name'),expiresAt:integer('expires_at').notNull(),createdAt:integer('created_at').notNull(),
+},table=>[index('auth_sessions_expiry').on(table.expiresAt),index('auth_sessions_user').on(table.userId)]);
+export const authChallenges=sqliteTable('auth_challenges',{
+ tokenHash:text('token_hash').primaryKey(),nonce:text('nonce').notNull(),expiresAt:integer('expires_at').notNull(),
+},table=>[index('auth_challenges_expiry').on(table.expiresAt)]);

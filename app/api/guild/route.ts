@@ -1,3 +1,4 @@
+import {authCookie} from '../../auth-core';
 import {ROLES as roles} from '../../role-options';
 import {EMPTY_WORLD,IMPACTS,activityReward,type WorldProgress} from '../../world-progress';
 import {validHair,validSkin,DEFAULT_HAIR,DEFAULT_SKIN} from '../../appearance-options';
@@ -80,6 +81,7 @@ export async function POST(request:Request){
   if(body.confirmation!=='HAPUS'||body.characterName!==member.name)return fail('Ketik HAPUS dan nama karakter yang sesuai.');
   const result=await db.prepare('DELETE FROM members WHERE id=? AND name=?').bind(user.userId,body.characterName).run();
   if(!result.meta.changes)return fail('Karakter berubah. Muat ulang sebelum mencoba lagi.',409);
+  if(env.AUTH_PROVIDER==='google'){await db.prepare('DELETE FROM auth_sessions WHERE user_id=?').bind(user.userId).run();const response=await reply(null);response.headers.append('Set-Cookie',authCookie('gr_session','',new URL(request.url).protocol==='https:',0));return response;}
  }else{
   const a=activityReward(body.action,member.role);if(!a)return fail('Aktivitas tidak dikenal.');
   const requestId=body.requestId??crypto.randomUUID();if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId))return fail('ID aktivitas tidak valid.');

@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "guild-rantau",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "vars": {
+    "AUTH_PROVIDER": "google"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "guild-rantau-db",
+      "database_id": "a79ff3ec-1484-467f-a67c-5c96b0ec9b4e",
+      "migrations_dir": "drizzle"
+    }
+  ]
+}

@@ -64,9 +64,9 @@ worker/                    Entrypoint Cloudflare Workers
 
 ## Akun dan hosting
 
-Login produksi memakai identitas ChatGPT dari hosting Sites. Satu akun memiliki satu karakter. Login Instagram dan verifikasi follower otomatis belum tersedia.
+Login produksi memakai Google dengan sesi server. Satu akun memiliki satu karakter. Login Instagram dan verifikasi follower otomatis belum tersedia.
 
-Hosting aplikasi menggunakan Workers dan D1. Konfigurasi `.openai/hosting.json` mempertahankan ikatan proyek dengan Sites; identitas proyek bukan kredensial login. Untuk hosting mandiri, siapkan database dan integrasi identitas yang sesuai.
+Hosting mandiri memakai Cloudflare Workers Free dan D1. Ikuti [panduan Cloudflare + Google](docs/DEPLOY-CLOUDFLARE.md). Jalur produksi ini memakai `wrangler.jsonc`, tidak bergantung pada login atau akses hosting Sites. Konfigurasi `.openai/hosting.json` adalah metadata proyek asal.
 
 Pengunggahan source ke GitHub tidak mengubah izin akses website yang sudah terbit. Visibilitas repositori dan akses website merupakan pengaturan terpisah.
 
