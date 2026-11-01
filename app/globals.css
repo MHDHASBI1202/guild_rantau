@@ -126,3 +126,12 @@
 .night .title-chip{background:#263542;border-color:#3a4c5c;color:#cedcd1}
 .night .title-chip.selected{background:#5d815b;border-color:#4b6b49!important;color:#ffffff!important}
 .night .member-title-tag,.night .sidebar-title-tag,.night .modal-title-tag{background:#263e2c;border-color:#3f6647;color:#aae0b1}
+
+
+/* === Live Member Status & Real Clock === */
+.live-stat-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;padding:4px 10px;background:#f1ede2;border:1px solid #ddd3c0;border-radius:16px;color:#4a5948}
+.live-stat-pill b{color:#2b3b2c;font-weight:700}
+.live-time-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 10px;background:#edf3e6;border:1px solid #c9dcb9;border-radius:16px;color:#3b5f33}
+.night .live-stat-pill{background:#24323e;border-color:#384b5c;color:#c4d7c8}
+.night .live-stat-pill b{color:#ffffff}
+.night .live-time-pill{background:#233929;border-color:#36573c;color:#aee2b5}
