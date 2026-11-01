@@ -5,7 +5,7 @@ import {validHair,validSkin,DEFAULT_HAIR,DEFAULT_SKIN} from '../../appearance-op
 import {GENDERS,normalizeGender,type Gender} from '../../character-options';
 import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '../../chatgpt-auth';
-import {SLOTS,findItem,itemKey,parseCosmetics,drawItem,ticketsFor,type Slot} from '../../cosmetics';
+import {SLOTS,findItem,itemKey,parseCosmetics,drawItem,ticketsFor,starterWardrobe,type Slot} from '../../cosmetics';
 const colors=['#e99552','#8baf9c','#8f9fc8','#c68cab'];
 type Stored={name:string;role:string;color:string;gender:string;hairStyle:string;skinTone:string;xp:number;wood:number;herbs:number;lastAction:number;activity:string;joinedAt:number;bed:string;cosmetics:string;highestLevel:number;spinsUsed:number};
 const privateFields='name,role,color,gender,hair_style AS hairStyle,skin_tone AS skinTone,xp,wood,herbs,last_action AS lastAction,activity,joined_at AS joinedAt,bed,cosmetics,highest_level AS highestLevel,spins_used AS spinsUsed';
@@ -34,8 +34,12 @@ export async function POST(request:Request){
   const hairStyle=body.hairStyle??DEFAULT_HAIR,skinTone=body.skinTone??DEFAULT_SKIN;if(!validHair(hairStyle)||!validSkin(skinTone))return fail('Pilihan rambut atau warna kulit tidak valid.');
   const gender=body.gender;if(!GENDERS.includes(gender as Gender))return fail('Pilih gender karakter: Laki-laki atau Perempuan.');
   if(name.length<2||name.length>24||!roles.includes(body.role)||!colors.includes(body.color))return fail('Nama 2–24 karakter, pilih peran dan warna.');
+  let cosmetics;try{
+   if(body.outfit!==undefined&&(typeof body.outfit!=='string'||body.outfit.length>1000))throw Error('Pilihan pakaian tidak valid.');
+   cosmetics=starterWardrobe(body.outfit===undefined?undefined:JSON.parse(body.outfit));
+  }catch(e){return fail(e instanceof Error?e.message:'Pilihan pakaian tidak valid.');}
   if(await db.prepare('SELECT id FROM members WHERE id=?').bind(user.userId).first())return fail('Kamu sudah punya karakter.',409);
-  await db.prepare('INSERT OR IGNORE INTO members (id,name,role,color,gender,hair_style,skin_tone,joined_at,bed) VALUES (?,?,?,?,?,?,?,?,?)').bind(user.userId,name,body.role,body.color,gender,hairStyle,skinTone,Date.now(),'R-'+crypto.randomUUID().slice(0,8).toUpperCase()).run();
+  await db.prepare('INSERT OR IGNORE INTO members (id,name,role,color,gender,hair_style,skin_tone,cosmetics,joined_at,bed) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(user.userId,name,body.role,body.color,gender,hairStyle,skinTone,JSON.stringify(cosmetics),Date.now(),'R-'+crypto.randomUUID().slice(0,8).toUpperCase()).run();
   return reply(user.userId);
  }
  const member=await db.prepare(`SELECT ${privateFields} FROM members WHERE id=?`).bind(user.userId).first<Stored>();

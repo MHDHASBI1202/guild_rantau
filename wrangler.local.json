@@ -1,6 +1,6 @@
 {
   "name": "guild-rantau-local",
-  "compatibility_date": "2026-10-31",
+  "compatibility_date": "2026-05-15",
   "d1_databases": [
     {
       "binding": "DB",

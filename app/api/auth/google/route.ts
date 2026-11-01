@@ -17,5 +17,6 @@ export async function POST(request:Request){
   env.DB.prepare('DELETE FROM auth_challenges WHERE token_hash=? AND nonce=?').bind(hash,row.nonce),
  ]);
  if(!result[0].meta.changes)return Response.json({error:'Sesi masuk sudah digunakan. Muat ulang halaman.'},{status:409,headers});
- headers.append('Set-Cookie',authCookie('gr_session',session,secure,30*86400));headers.append('Set-Cookie',authCookie('gr_challenge','',secure,0));return Response.json({ok:true},{headers});
+ const hasCharacter=!!await env.DB.prepare('SELECT id FROM members WHERE id=?').bind(identity.userId).first();
+ headers.append('Set-Cookie',authCookie('gr_session',session,secure,30*86400));headers.append('Set-Cookie',authCookie('gr_challenge','',secure,0));return Response.json({ok:true,hasCharacter},{headers});
 }

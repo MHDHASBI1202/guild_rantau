@@ -59,7 +59,7 @@ export default defineConfig(async ({ command }) => {
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
-        ...(standalone ? {configPath:"./wrangler.jsonc"} : {config: {
+        ...(standalone ? {configPath:"./wrangler.jsonc"} : {configPath:"./wrangler.local.json",config: {
           ...localBindingConfig,
           ...(command === "serve"
             ? {

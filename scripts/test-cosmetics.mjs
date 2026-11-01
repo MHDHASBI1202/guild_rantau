@@ -3,6 +3,12 @@ import * as THREE from 'three';
 import {loadGameModules} from './load-game-modules.mjs';
 const {cosmetics:c,avatar:a}=await loadGameModules();
 assert.equal(c.ITEMS.length,30);assert.equal(new Set(c.ITEMS.map(c.itemKey)).size,30);assert.equal(c.STARTER.length,10);
+assert.deepEqual(c.starterWardrobe(),{owned:c.STARTER,equipped:c.DEFAULT_LOADOUT});
+const alternate=Object.fromEntries(c.SLOTS.map(slot=>[slot,c.ITEMS.filter(item=>item.slot===slot&&item.rarity==='awal').at(-1).id]));
+assert.deepEqual(c.starterWardrobe(alternate).equipped,alternate);
+for(const item of c.ITEMS.filter(item=>item.rarity!=='awal'))assert.throws(()=>c.starterWardrobe({[item.slot]:item.id}),/terkunci/);
+for(const invalid of [null,[],42,'linen',{unknown:'linen'},{topi:null},{baju:'missing'}])assert.throws(()=>c.starterWardrobe(invalid));
+const isolated=c.starterWardrobe();isolated.owned.push('test');isolated.equipped.baju='test';assert.deepEqual(c.starterWardrobe(),{owned:c.STARTER,equipped:c.DEFAULT_LOADOUT});
 assert.deepEqual(c.spinOdds(c.STARTER).map(o=>o.percent),[60,30,10]);
 const owned=[...c.STARTER];for(let i=0;i<20;i++){const item=c.drawItem(owned);assert.ok(item);assert.ok(!owned.includes(c.itemKey(item)));owned.push(c.itemKey(item));}
 assert.equal(c.drawItem(owned),null);assert.deepEqual(c.spinOdds(owned),[]);

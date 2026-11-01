@@ -31,6 +31,19 @@ export const itemKey=(item:Pick<Item,'slot'|'id'>)=>`${item.slot}:${item.id}`;
 export const STARTER=ITEMS.filter(i=>i.rarity==='awal').map(itemKey);
 export const findItem=(slot:Slot,id:string)=>ITEMS.find(i=>i.slot===slot&&i.id===id);
 export type WardrobeState={owned:string[];equipped:Loadout};
+export function starterWardrobe(input?:unknown):WardrobeState{
+ const equipped={...DEFAULT_LOADOUT};
+ if(input!==undefined){
+  if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Pilihan pakaian tidak valid.');
+  if(Object.keys(input).some(k=>!SLOTS.includes(k as Slot)))throw Error('Kategori pakaian tidak valid.');
+  for(const slot of SLOTS){
+   const id=(input as Record<string,unknown>)[slot];if(id===undefined)continue;
+   if(typeof id!=='string'||!STARTER.includes(`${slot}:${id}`))throw Error('Pilih item awal yang tersedia. Item hadiah level masih terkunci.');
+   equipped[slot]=id;
+  }
+ }
+ return {owned:[...STARTER],equipped};
+}
 export function parseCosmetics(raw:unknown):WardrobeState{
  let value:Partial<WardrobeState>={};try{value=typeof raw==='string'?JSON.parse(raw):raw as Partial<WardrobeState>||{};}catch{}
  if(!value||typeof value!=='object')value={};
