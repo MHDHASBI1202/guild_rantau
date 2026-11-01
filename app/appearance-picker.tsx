@@ -1,0 +1,6 @@
+'use client';
+import {Check} from 'lucide-react';
+import {HAIR_STYLES,SKIN_TONES,type HairStyle,type SkinTone} from './appearance-options';
+export default function AppearancePicker({hairStyle,skinTone,onHair,onSkin,disabled=false}:{hairStyle:HairStyle;skinTone:SkinTone;onHair:(v:HairStyle)=>void;onSkin:(v:SkinTone)=>void;disabled?:boolean}){
+ return <div className="appearance-picker"><div className="appearance-heading"><b>Rambut & warna kulit</b><span>Semua gratis</span></div><fieldset disabled={disabled}><legend>Gaya rambut</legend><div className="hair-options">{HAIR_STYLES.map(h=><button type="button" key={h.id} aria-pressed={hairStyle===h.id} onClick={()=>onHair(h.id)}><b>{h.name}</b>{hairStyle===h.id&&<Check size={13}/>}</button>)}</div></fieldset><fieldset disabled={disabled}><legend>Warna kulit</legend><div className="skin-options">{SKIN_TONES.map(s=><button type="button" key={s.color} aria-label={s.name} aria-pressed={skinTone===s.color} style={{background:s.color}} onClick={()=>onSkin(s.color)}>{skinTone===s.color&&<Check size={17}/>}</button>)}</div><small>{SKIN_TONES.find(s=>s.color===skinTone)?.name} · Bisa diganti kapan saja.</small></fieldset><p>{HAIR_STYLES.length} gaya yang sama untuk Laki-laki dan Perempuan. Semua gratis, tanpa spin.</p></div>;
+}

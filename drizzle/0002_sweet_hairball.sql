@@ -1,0 +1,1 @@
+CREATE INDEX `spin_history_member_time` ON `spin_history` (`member_id`,`created_at`);

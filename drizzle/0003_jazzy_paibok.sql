@@ -1,0 +1,1 @@
+ALTER TABLE `members` ADD `gender` text DEFAULT 'netral' NOT NULL;
