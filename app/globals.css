@@ -59,3 +59,70 @@
 .night .milestone-heading{color:#c5dbb5}
 .night .milestone-heading span{color:#8ea593}
 .night .milestone-sub{color:#9cb2a3}
+
+
+/* === Kedai Barter Aru & Titles === */
+.barter-shop{margin:32px 0 24px;padding:24px 20px;background:#fbf9f4;border:1px solid #e7dfd0;border-radius:12px}
+.barter-header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+.barter-header-text h2{font-size:22px;font-weight:700;margin:4px 0 6px;color:#3b4d3c}
+.barter-header-text p{font-size:13px;color:#6d7b69;max-width:560px;line-height:1.5;margin:0}
+.barter-balance-bar{display:flex;gap:8px;flex-wrap:wrap}
+.barter-balance-pill{display:flex;align-items:center;gap:6px;padding:6px 12px;background:#ffffff;border:1px solid #d9d0bf;border-radius:20px;font-size:12px;color:#4a544b}
+.barter-balance-pill b{font-weight:700;color:#2b3b2c}
+.icon-wood{color:#a17042}
+.icon-herbs{color:#5a8a52}
+.icon-ticket{color:#d68936}
+.barter-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px}
+.barter-tabs button{padding:7px 14px;font-size:12px;font-weight:500;background:#ece5d6;border:1px solid transparent;border-radius:20px;color:#556353;cursor:pointer;white-space:nowrap;transition:all .15s ease}
+.barter-tabs button:hover{background:#dfd7c5}
+.barter-tabs button.active{background:#466045;color:#ffffff;border-color:#384e37}
+.barter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.barter-card{display:flex;flex-direction:column;padding:14px 16px;background:#ffffff;border:1px solid #e3d9c7;border-radius:10px;transition:transform .15s ease,box-shadow .15s ease}
+.barter-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(60,50,30,.06)}
+.barter-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.barter-type-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;font-size:10px;font-weight:600;text-transform:uppercase;background:#f1ede2;color:#657561;border-radius:12px}
+.title-preview-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border:1px solid currentColor;border-radius:12px;background:rgba(255,255,255,.85)}
+.barter-card h3{font-size:14px;font-weight:600;color:#2e3d30;margin:0 0 4px}
+.barter-card-desc{font-size:11px;color:#72806f;line-height:1.45;flex:1;margin:0 0 12px}
+.barter-card-costs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.cost-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:11px;font-weight:600;border-radius:6px}
+.cost-tag.ok{background:#e9f2e4;color:#3e6837}
+.cost-tag.short{background:#fdf0ec;color:#b54932}
+.barter-card-action{margin-top:auto}
+.barter-btn{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;font-size:12px;font-weight:600;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:all .15s ease}
+.barter-btn.primary{background:#466045;color:#ffffff}
+.barter-btn.primary:hover:not(:disabled){background:#395038}
+.barter-btn.equip{background:#eef4e8;color:#3b6038;border-color:#c4d7bb}
+.barter-btn.equip:hover:not(:disabled){background:#dfecda}
+.barter-btn.active{background:#3d583b;color:#fff}
+.barter-btn.disabled,.barter-btn:disabled{background:#ede8dc;color:#9ca696;cursor:not-allowed}
+.owned-titles-section{margin-top:20px;padding:14px 16px;background:#f2eee3;border:1px dashed #d1c6b1;border-radius:10px}
+.owned-titles-header{display:flex;align-items:center;gap:8px;font-size:12px;color:#4b5a4a;margin-bottom:10px;flex-wrap:wrap}
+.owned-titles-header b{font-weight:600}
+.owned-titles-header span{font-size:11px;color:#7b8a79}
+.owned-titles-list{display:flex;gap:8px;flex-wrap:wrap}
+.title-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;font-size:11px;font-weight:600;background:#ffffff;border:1px solid #cbbeab;border-radius:16px;color:#414f40;cursor:pointer;transition:all .15s ease}
+.title-chip:hover{background:#f7f4ec}
+.title-chip.selected{background:#466045;color:#ffffff!important;border-color:#384e37!important}
+.member-name-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.member-title-tag{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:2px 7px;border-radius:10px;background:#edf4e6;border:1px solid #c2d8b5;color:#3e6335}
+.sidebar-title-tag{display:inline-block;font-size:9px;font-weight:700;margin-left:6px;padding:1px 6px;border-radius:8px;background:#e8efe2;color:#46683c;vertical-align:middle}
+.modal-title-tag{display:inline-block;font-size:12px;font-weight:700;margin-left:10px;padding:3px 10px;border-radius:12px;background:#edf4e8;border:1px solid #b8d2ab;color:#3a6231;vertical-align:middle}
+.night .barter-shop{background:#1e2830;border-color:#2f3e4b}
+.night .barter-header-text h2{color:#dfede0}
+.night .barter-header-text p{color:#9cb2a3}
+.night .barter-balance-pill{background:#283642;border-color:#3e5060;color:#d1ded4}
+.night .barter-balance-pill b{color:#ffffff}
+.night .barter-tabs button{background:#283642;color:#b5c7ba}
+.night .barter-tabs button.active{background:#5d815b;border-color:#4b6b49;color:#ffffff}
+.night .barter-card{background:#25333f;border-color:#364858}
+.night .barter-card h3{color:#e5f0e6}
+.night .barter-card-desc{color:#9eb1a2}
+.night .barter-type-pill{background:#1d2730;color:#9cb5a0}
+.night .cost-tag.ok{background:#2a442e;color:#a7df9f}
+.night .cost-tag.short{background:#472d2b;color:#f7a999}
+.night .owned-titles-section{background:#1b242c;border-color:#344756}
+.night .owned-titles-header{color:#c4d7c8}
+.night .title-chip{background:#263542;border-color:#3a4c5c;color:#cedcd1}
+.night .title-chip.selected{background:#5d815b;border-color:#4b6b49!important;color:#ffffff!important}
+.night .member-title-tag,.night .sidebar-title-tag,.night .modal-title-tag{background:#263e2c;border-color:#3f6647;color:#aae0b1}

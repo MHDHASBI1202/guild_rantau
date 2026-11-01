@@ -6,6 +6,7 @@ import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '../../chatgpt-auth';
 import {SLOTS,findItem,itemKey,parseCosmetics,drawItem,ticketsFor,type Slot} from '../../cosmetics';
 import {getMemberLevel} from '../../milestones';
+import {BARTER_CATALOG} from '../../barter-options';
 const colors=['#e99552','#8baf9c','#8f9fc8','#c68cab'];
 type Stored={name:string;role:string;color:string;gender:string;hairStyle:string;skinTone:string;xp:number;wood:number;herbs:number;lastAction:number;activity:string;joinedAt:number;bed:string;cosmetics:string;highestLevel:number;spinsUsed:number};
 const privateFields='name,role,color,gender,hair_style AS hairStyle,skin_tone AS skinTone,xp,wood,herbs,last_action AS lastAction,activity,joined_at AS joinedAt,bed,cosmetics,highest_level AS highestLevel,spins_used AS spinsUsed';
@@ -15,8 +16,8 @@ async function reply(userId:string|null,extra:Record<string,unknown>={}){
  const count=await db.prepare('SELECT COUNT(*) AS total FROM members').first<{total:number}>();
  const row=userId?await db.prepare(`SELECT ${privateFields} FROM members WHERE id=?`).bind(userId).first<Stored>():null;
  let me=null;
- if(row){const {cosmetics,...rest}=row;const wardrobe=parseCosmetics(cosmetics);const recent=await db.prepare('SELECT id,item_id AS itemKey,created_at AS createdAt FROM spin_history WHERE member_id=? ORDER BY created_at DESC,id DESC LIMIT 10').bind(userId).all();me={...rest,gender:normalizeGender(row.gender),highestLevel:Math.max(row.highestLevel,getMemberLevel(row.xp)),wardrobe,outfit:wardrobe.equipped,tickets:ticketsFor(row.xp,row.highestLevel,row.spinsUsed),recentSpins:recent.results};}
- const members=all.results.map(({cosmetics,...member})=>({...member,gender:normalizeGender(member.gender),outfit:parseCosmetics(cosmetics).equipped}));
+ if(row){const {cosmetics,...rest}=row;const wardrobe=parseCosmetics(cosmetics);const recent=await db.prepare('SELECT id,item_id AS itemKey,created_at AS createdAt FROM spin_history WHERE member_id=? ORDER BY created_at DESC,id DESC LIMIT 10').bind(userId).all();me={...rest,gender:normalizeGender(row.gender),highestLevel:Math.max(row.highestLevel,getMemberLevel(row.xp)),wardrobe,outfit:wardrobe.equipped,title:wardrobe.title,titles:wardrobe.titles,tickets:ticketsFor(row.xp,row.highestLevel,row.spinsUsed),recentSpins:recent.results};}
+ const members=all.results.map(({cosmetics,...member})=>{const w=parseCosmetics(cosmetics);return {...member,gender:normalizeGender(member.gender),outfit:w.equipped,title:w.title};});
  const world=await db.prepare('SELECT wood,herbs,defense,comfort,exploration,craft,farm,magic,updated_at AS updatedAt FROM camp_state WHERE id=1').first<WorldProgress>()??EMPTY_WORLD;
  const events=await db.prepare('SELECT id,action,role,amount,created_at AS createdAt FROM world_events ORDER BY created_at DESC,id DESC LIMIT 8').all();
  return Response.json({signedIn:!!userId,me,members,total:count?.total??0,world,worldEvents:events.results,...extra},{headers:{'Cache-Control':'no-store'}});
@@ -63,6 +64,34 @@ export async function POST(request:Request){
   ]);
   const result=await receipt();if(!result)return fail('Lemari berubah saat spin. Tiket tidak terpotong. Coba lagi.',409);
   return reply(user.userId,{reward:result.itemKey,spinId:body.requestId});
+ }
+ if(body.action==='barter'){
+  const item=BARTER_CATALOG.find(i=>i.id===body.itemId);
+  if(!item)return fail('Pilihan barter tidak ditemukan.');
+  if((member.wood??0)<item.woodCost||(member.herbs??0)<item.herbsCost)return fail(`Persediaan belum cukup. Butuh ${item.woodCost} kayu dan ${item.herbsCost} daun.`);
+  const wardrobe=parseCosmetics(member.cosmetics);
+  if(item.type==='cosmetic'){
+   if(wardrobe.owned.includes(item.cosmeticKey!))return fail('Kamu sudah memiliki item ini.');
+   wardrobe.owned.push(item.cosmeticKey!);
+  }else if(item.type==='title'){
+   wardrobe.titles??=[];
+   if(wardrobe.titles.includes(item.titleText!))return fail('Kamu sudah memiliki gelar ini.');
+   wardrobe.titles.push(item.titleText!);
+   wardrobe.title=item.titleText!;
+  }
+  const spinReduction=item.type==='ticket'?1:0;
+  const r=await db.prepare('UPDATE members SET wood=wood-?,herbs=herbs-?,cosmetics=?,spins_used=spins_used-? WHERE id=? AND wood>=? AND herbs>=? AND cosmetics=?').bind(item.woodCost,item.herbsCost,JSON.stringify(wardrobe),spinReduction,user.userId,item.woodCost,item.herbsCost,member.cosmetics).run();
+  if(!r.meta.changes)return fail('Persediaan berubah di perangkat lain. Muat ulang dan periksa kembali bahanmu.',409);
+  return reply(user.userId,{barterSuccess:item.name});
+ }
+ if(body.action==='setTitle'){
+  const wardrobe=parseCosmetics(member.cosmetics);
+  const title=typeof body.title==='string'?body.title:'';
+  if(title&&(!wardrobe.titles||!wardrobe.titles.includes(title)))return fail('Gelar belum kamu miliki.',403);
+  wardrobe.title=title;
+  const r=await db.prepare('UPDATE members SET cosmetics=? WHERE id=? AND cosmetics=?').bind(JSON.stringify(wardrobe),user.userId,member.cosmetics).run();
+  if(!r.meta.changes)return fail('Lemari berubah di perangkat lain. Muat ulang dan coba lagi.',409);
+  return reply(user.userId);
  }
  if(body.action==='update'){
   const hairStyle=body.hairStyle??member.hairStyle,skinTone=body.skinTone??member.skinTone;if(!validHair(hairStyle)||!validSkin(skinTone))return fail('Pilihan rambut atau warna kulit tidak valid.');
