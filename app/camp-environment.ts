@@ -19,29 +19,40 @@ export function createCampEnvironment(progress:WorldProgress):{root:THREE.Group;
  const farm=part('farm');for(let i=0;i<visualCount(progress.farm);i++){const x=(i%3)*.7,z=Math.floor(i/3)*.7;box(farm,[.6,.10,.6],[x,.02,z],'#907b53');box(farm,[.04,.36,.04],[x,.22,z],'#75965e');for(const side of [-1,1]){const leaf=new THREE.Mesh(new THREE.OctahedronGeometry(.22,0),mat('#9cbf78'));leaf.scale.set(1,.35,.5);leaf.rotation.z=side*.5;leaf.position.set(x+side*.12,.32,z);farm.add(leaf);}}
  const magic=part('magic');for(let i=0;i<visualCount(progress.magic);i++){const x=(i%3)*.7,z=Math.floor(i/3)*.7;const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.28,0),new THREE.MeshStandardMaterial({color:'#a9c4df',emissive:'#7a85c7',emissiveIntensity:.7,flatShading:true}));crystal.position.set(x,.6,z);crystal.scale.y=1.8;magic.add(crystal);box(magic,[.45,.16,.45],[x,.1,z],'#8e9a98');}
 
- // === Api unggun / Campfire — pusat kamp ===
- const fire=new THREE.Group();fire.name='api-unggun';fire.position.set(-1,0,3.5);root.add(fire);
- // Batu-batu melingkar
- for(let i=0;i<6;i++){const a=i/6*Math.PI*2;const s=new THREE.Mesh(new THREE.DodecahedronGeometry(.17,0),mat('#8a7f75'));s.position.set(Math.cos(a)*.52,.10,Math.sin(a)*.52);s.castShadow=true;fire.add(s);}
- // Kayu bakar
- for(let i=0;i<3;i++){const log=new THREE.Mesh(new THREE.CylinderGeometry(.09,.11,.85,7),mat('#6b5040'));log.rotation.z=Math.PI/2;log.rotation.y=(i/3)*Math.PI;log.position.y=.09;log.castShadow=true;fire.add(log);}
- // Nyala api — MeshBasicMaterial supaya tidak perlu lighting (hemat GPU)
+ // === Api unggun / Campfire — pusat kehangatan kamp ===
+ const fire=new THREE.Group();fire.name='api-unggun';fire.position.set(-1.2,0,4.2);root.add(fire);
+ for(let i=0;i<7;i++){const a=i/7*Math.PI*2;const s=new THREE.Mesh(new THREE.DodecahedronGeometry(.18,0),mat('#8a7f75'));s.position.set(Math.cos(a)*.56,.10,Math.sin(a)*.56);s.castShadow=true;fire.add(s);}
+ for(let i=0;i<3;i++){const log=new THREE.Mesh(new THREE.CylinderGeometry(.09,.11,.92,7),mat('#6b5040'));log.rotation.z=Math.PI/2;log.rotation.y=(i/3)*Math.PI;log.position.y=.09;log.castShadow=true;fire.add(log);}
  const flames:THREE.Mesh[]=['#ff9933','#ff5511','#ffcc00','#ff4422','#ffaa22'].map((col,i)=>{
   const fl=new THREE.Mesh(new THREE.ConeGeometry(.08+i*.022,.20+i*.10,5),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.90}));
   fl.position.set(Math.cos(i/5*Math.PI*2)*.07,.18+i*.03,Math.sin(i/5*Math.PI*2)*.07);
   fl.userData.phaseOffset=i*1.27;fire.add(fl);return fl;
  });
- // Cahaya temaram api — PointLight kecil, tidak cast shadow (hemat)
- const emberLight=new THREE.PointLight('#ff7722',2.8,9,1.5);emberLight.position.set(-1,1.2,3.5);root.add(emberLight);
+ const emberLight=new THREE.PointLight('#ff7722',2.8,11,1.5);emberLight.position.set(-1.2,1.2,4.2);root.add(emberLight);
 
- // === Kolam kecil / Pond ===
- const pondMat=new THREE.MeshStandardMaterial({color:'#6a98aa',roughness:.15,metalness:.25,transparent:true,opacity:.78});
- const pond=new THREE.Mesh(new THREE.CircleGeometry(1.5,9),pondMat);
- pond.name='kolam';pond.rotation.x=-Math.PI/2;pond.position.set(-3,.01,-3);pond.receiveShadow=true;root.add(pond);
- // Daun teratai
- for(let i=0;i<3;i++){const a=(i/3)*Math.PI*2;const lily=new THREE.Mesh(new THREE.CircleGeometry(.26,8),mat('#7a9e5a'));lily.rotation.x=-Math.PI/2;lily.position.set(-3+Math.cos(a)*.85,.018,-3+Math.sin(a)*.85);root.add(lily);}
+ // Bangku kayu di dekat api unggun
+ for(const angle of [-.8,.8,2.4]){
+  const bench=new THREE.Mesh(new THREE.BoxGeometry(.4, .2, 1.3), mat('#7c634a'));
+  bench.position.set(-1.2+Math.cos(angle)*1.7, .1, 4.2+Math.sin(angle)*1.7);
+  bench.rotation.y=-angle+Math.PI/2;
+  bench.castShadow=true;root.add(bench);
+ }
 
- // === Asap dari api unggun — object pool (tidak dibuat baru tiap frame) ===
+ // === Kolam / Pond yang lebih luas dan asri ===
+ const pondMat=new THREE.MeshStandardMaterial({color:'#6a98aa',roughness:.15,metalness:.25,transparent:true,opacity:.82});
+ const pond=new THREE.Mesh(new THREE.CircleGeometry(2.6,12),pondMat);
+ pond.name='kolam';pond.rotation.x=-Math.PI/2;pond.position.set(-5.5,.01,-5.5);pond.receiveShadow=true;root.add(pond);
+ for(let i=0;i<5;i++){
+  const a=(i/5)*Math.PI*2;const lily=new THREE.Mesh(new THREE.CircleGeometry(.3,8),mat(i%2?'#7a9e5a':'#658a47'));
+  lily.rotation.x=-Math.PI/2;lily.position.set(-5.5+Math.cos(a)*1.4,.018,-5.5+Math.sin(a)*1.4);root.add(lily);
+ }
+ // Batu-batu tepi kolam
+ for(let i=0;i<8;i++){
+  const a=(i/8)*Math.PI*2;const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.22+Math.sin(i)*.08,0),mat('#7d8c7c'));
+  rock.position.set(-5.5+Math.cos(a)*2.55,.08,-5.5+Math.sin(a)*2.55);rock.castShadow=true;root.add(rock);
+ }
+
+ // === Asap dari api unggun ===
  const smokePool:THREE.Mesh[]=Array.from({length:8},(_,i)=>{
   const s=new THREE.Mesh(new THREE.SphereGeometry(.15+i*.03,5,4),new THREE.MeshBasicMaterial({color:'#c0b8a8',transparent:true,opacity:0}));
   s.userData.phaseOffset=i/8;root.add(s);return s;

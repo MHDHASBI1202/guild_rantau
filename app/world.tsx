@@ -5,7 +5,7 @@ import type {HairStyle,SkinTone} from './appearance-options';
 import type {Gender} from './character-options';
 import {type Loadout} from './cosmetics';
 import {useEffect,useRef,useState} from 'react';
-import {createMotion,advanceMotion,recentActivity,workSlots,dockPoint,ringPoint,type MotionState} from './activity-motion';
+import {createMotion,advanceMotion,recentActivity,workSlots,dockPoint,ringPoint,ROLE_SPECIALTIES,type MotionState} from './activity-motion';
 import {createActivityKit,animateActivity,type ActivityKit} from './activity-animation';
 import * as THREE from 'three';
 import {createAvatar,animateAvatar,disposeAvatar} from './avatar-model';
@@ -59,28 +59,59 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
  useEffect(()=>{const el=mount.current!;let renderer:THREE.WebGLRenderer;
   try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}catch{el.innerHTML='<p class="webgl-fallback">Kabut menutupi Rumu. Kamu tetap bisa menjelajahi kamp lewat menu di bawah.</p>';return;}
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;el.appendChild(renderer.domElement);
-  const scene=new THREE.Scene();scene.add(citizens.current);scene.add(environment.current);scene.fog=new THREE.FogExp2('#dce3ce',.012);
-  const camera=new THREE.PerspectiveCamera(36,1,.1,350);camera.position.set(19,14,23);
-  const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.minDistance=12;controls.maxDistance=37;controls.maxPolarAngle=1.45;controls.target.set(0,3,0);controls.autoRotate=true;controls.autoRotateSpeed=.32;
+  const scene=new THREE.Scene();scene.add(citizens.current);scene.add(environment.current);scene.fog=new THREE.FogExp2('#dce3ce',.009);
+  const camera=new THREE.PerspectiveCamera(36,1,.1,450);camera.position.set(24,18,30);
+  const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.minDistance=10;controls.maxDistance=65;controls.maxPolarAngle=1.45;controls.target.set(0,3.5,0);controls.autoRotate=true;controls.autoRotateSpeed=.30;
   const hemi=new THREE.HemisphereLight('#fff9df','#536f58',2.4);scene.add(hemi);
-  const sun=new THREE.DirectionalLight('#fff0cb',3.4);sun.position.set(-12,24,15);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-25;sun.shadow.camera.right=25;sun.shadow.camera.top=25;sun.shadow.camera.bottom=-25;sun.shadow.normalBias=.08;scene.add(sun);
+  const sun=new THREE.DirectionalLight('#fff0cb',3.4);sun.position.set(-16,34,22);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-40;sun.shadow.camera.right=40;sun.shadow.camera.top=40;sun.shadow.camera.bottom=-40;sun.shadow.normalBias=.08;scene.add(sun);
   const mat=(color:string)=>new THREE.MeshStandardMaterial({color,flatShading:true,roughness:1});
-  const island=new THREE.Mesh(new THREE.CylinderGeometry(20,17,2.5,9),mat('#a2b287'));island.position.y=-1.45;island.receiveShadow=true;scene.add(island);
-  const trail=new THREE.Mesh(new THREE.PlaneGeometry(7,42),mat('#c8b898'));trail.rotation.x=-Math.PI/2;trail.rotation.z=-.13;trail.position.y=-.17;scene.add(trail);
+
+  // === Pulau Padang Rumput yang Luas (Enlarged World Island) ===
+  const island=new THREE.Mesh(new THREE.CylinderGeometry(38,34,3.4,14),mat('#9eb084'));island.position.y=-1.65;island.receiveShadow=true;scene.add(island);
+  const cliff=new THREE.Mesh(new THREE.CylinderGeometry(40,35,2.4,14),mat('#6d7a66'));cliff.position.y=-3.6;cliff.receiveShadow=true;scene.add(cliff);
+
+  // Jalur setapak utama & silang
+  const trail=new THREE.Mesh(new THREE.PlaneGeometry(8.5,74),mat('#c8b898'));trail.rotation.x=-Math.PI/2;trail.rotation.z=-.13;trail.position.y=-.17;scene.add(trail);
+  const crossTrail=new THREE.Mesh(new THREE.PlaneGeometry(54,6.5),mat('#c2b392'));crossTrail.rotation.x=-Math.PI/2;crossTrail.rotation.z=.72;crossTrail.position.y=-.172;scene.add(crossTrail);
+
   let seed=27;const random=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};
 
-  // Pohon dengan tambahan data angin
+  // === Pepohonan Alam dengan variasi bentuk (Forest Trees) ===
   const forestTrees:THREE.Group[]=[];
-  for(let i=0;i<35;i++){
-   const angle=random()*Math.PI*2,r=11+random()*7;const x=Math.cos(angle)*r,z=Math.sin(angle)*r;if(Math.abs(x)<4)continue;
-   const h=2+random()*3.5;const tree=new THREE.Group();
-   const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.14,.23,h*.45,5),mat('#7f7157'));trunk.position.y=h*.2;tree.add(trunk);
-   for(let j=0;j<3;j++){const leaf=new THREE.Mesh(new THREE.ConeGeometry(h*(.28-j*.045),h*.55,5),mat(['#708c72','#849b77','#5a7b68'][j]));leaf.position.y=h*(.45+j*.19);leaf.castShadow=true;tree.add(leaf);}
+  for(let i=0;i<75;i++){
+   const angle=random()*Math.PI*2,r=13.5+random()*19.5;
+   const x=Math.cos(angle)*r,z=Math.sin(angle)*r;
+   if(Math.hypot(x,z)<11.5)continue;
+   const h=2.2+random()*3.8;const tree=new THREE.Group();
+   const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.15,.25,h*.45,5),mat('#7f7157'));trunk.position.y=h*.2;tree.add(trunk);
+   if(i%3===0){
+    const crown=new THREE.Mesh(new THREE.DodecahedronGeometry(h*.38,1),mat(['#628060','#74966d','#84a478'][i%3]));
+    crown.position.y=h*.65;crown.castShadow=true;tree.add(crown);
+   }else{
+    for(let j=0;j<3;j++){const leaf=new THREE.Mesh(new THREE.ConeGeometry(h*(.28-j*.045),h*.55,5),mat(['#708c72','#849b77','#5a7b68'][j]));leaf.position.y=h*(.45+j*.19);leaf.castShadow=true;tree.add(leaf);}
+   }
    tree.position.set(x,-.1,z);tree.userData.forest=true;
    tree.userData.windPhase=random()*Math.PI*2;
    tree.userData.windAmp=.012+random()*.016;
    tree.updateMatrixWorld(true);tree.userData.occlusionBox=new THREE.Box3().setFromObject(tree).expandByScalar(.3);
    scene.add(tree);forestTrees.push(tree);
+  }
+
+  // === Bebatuan Alam di Tepi Luar Tebing ===
+  for(let i=0;i<16;i++){
+   const a=(i/16)*Math.PI*2+random()*.25,r=31+random()*4.5;
+   const boulder=new THREE.Mesh(new THREE.DodecahedronGeometry(1.2+random()*1.3,0),mat('#7e8777'));
+   boulder.position.set(Math.cos(a)*r,.35,Math.sin(a)*r);
+   boulder.rotation.set(random(),random(),random());
+   boulder.castShadow=true;scene.add(boulder);
+  }
+
+  // === Petak Bunga & Semak Padang Rumput ===
+  for(let i=0;i<32;i++){
+   const a=random()*Math.PI*2,r=10+random()*19;
+   const flower=new THREE.Mesh(new THREE.BoxGeometry(.35,.25,.35),mat(i%3===0?'#e3c376':i%3===1?'#d0909f':'#98bfa5'));
+   flower.position.set(Math.cos(a)*r,.05,Math.sin(a)*r);
+   scene.add(flower);
   }
 
   // Objek Rumu, Aru, & part di atas Rumu
@@ -142,39 +173,39 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    };
   },undefined,()=>{el.dataset.error='true';});
 
-  const fireflies=new THREE.Group();for(let i=0;i<22;i++){const f=new THREE.Mesh(new THREE.SphereGeometry(.045,4,4),new THREE.MeshBasicMaterial({color:'#ffe5a0'}));f.position.set((random()-.5)*22,1+random()*6,(random()-.5)*22);fireflies.add(f);}scene.add(fireflies);
+  const fireflies=new THREE.Group();for(let i=0;i<30;i++){const f=new THREE.Mesh(new THREE.SphereGeometry(.048,4,4),new THREE.MeshBasicMaterial({color:'#ffe5a0'}));f.position.set((random()-.5)*46,1+random()*7,(random()-.5)*46);fireflies.add(f);}scene.add(fireflies);
 
   // === Awan melayang / Clouds ===
   const clouds:THREE.Group[]=[];
   const cloudMat=new THREE.MeshStandardMaterial({color:'#f0f4e8',flatShading:true,roughness:1});
-  for(let i=0;i<6;i++){
+  for(let i=0;i<7;i++){
    const g=new THREE.Group();
-   for(let j=0;j<4;j++){const p=new THREE.Mesh(new THREE.SphereGeometry(1.1+j*.32,5,4),cloudMat);p.position.set(j*1.65-2.5,0,0);p.scale.set([1.0,.72,.58,.48][j],.50,.60);g.add(p);}
-   const ca=(i/6)*Math.PI*2,cr=16+i*1.8;
-   g.position.set(Math.cos(ca)*cr,15+i*.9,Math.sin(ca)*cr);
+   for(let j=0;j<4;j++){const p=new THREE.Mesh(new THREE.SphereGeometry(1.2+j*.35,5,4),cloudMat);p.position.set(j*1.8-2.7,0,0);p.scale.set([1.0,.72,.58,.48][j],.50,.60);g.add(p);}
+   const ca=(i/7)*Math.PI*2,cr=26+i*2.6;
+   g.position.set(Math.cos(ca)*cr,18+i*1.1,Math.sin(ca)*cr);
    g.userData.cloudAngle=ca;g.userData.cloudR=cr;
-   g.userData.cloudSpeed=.007*(i%2===0?1:-1);
+   g.userData.cloudSpeed=.006*(i%2===0?1:-1);
    scene.add(g);clouds.push(g);
   }
 
   // === Bintang malam / Stars ===
   const starPos:number[]=[];
-  for(let i=0;i<180;i++){const u=(i+.5)/180;const phi=Math.acos(1-u*.96);const th=i*2.39996;const r=100+i*.5;starPos.push(Math.sin(phi)*Math.cos(th)*r,Math.cos(phi)*r+8,Math.sin(phi)*Math.sin(th)*r);}
+  for(let i=0;i<220;i++){const u=(i+.5)/220;const phi=Math.acos(1-u*.96);const th=i*2.39996;const r=120+i*.5;starPos.push(Math.sin(phi)*Math.cos(th)*r,Math.cos(phi)*r+8,Math.sin(phi)*Math.sin(th)*r);}
   const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starPos,3));
-  const stars=new THREE.Points(starGeo,new THREE.PointsMaterial({color:'#fffde8',size:.65,sizeAttenuation:true,transparent:true,opacity:0}));
+  const stars=new THREE.Points(starGeo,new THREE.PointsMaterial({color:'#fffde8',size:.68,sizeAttenuation:true,transparent:true,opacity:0}));
   scene.add(stars);
 
   // === Burung kecil / Birds ===
   const birds:THREE.Group[]=[];
   const birdMat=new THREE.MeshBasicMaterial({color:'#4a3f35',side:THREE.DoubleSide});
-  for(let i=0;i<4;i++){
+  for(let i=0;i<5;i++){
    const g=new THREE.Group();
    for(const side of [-1,1] as const){
-    const wg=new THREE.BufferGeometry();wg.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,side*.52,.10,-.32,side*.82,0,0],3));
+    const wg=new THREE.BufferGeometry();wg.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,side*.55,.10,-.34,side*.86,0,0],3));
     g.add(new THREE.Mesh(wg,birdMat));
    }
-   g.userData.birdAngle=(i/4)*Math.PI*2;g.userData.birdR=11+i*2.4;
-   g.userData.birdSpeed=.20+i*.038;g.userData.birdBaseY=8.5+i*1.1;g.userData.birdPhase=i*1.57;
+   g.userData.birdAngle=(i/5)*Math.PI*2;g.userData.birdR=17+i*3.2;
+   g.userData.birdSpeed=.18+i*.032;g.userData.birdBaseY=9.5+i*1.1;g.userData.birdPhase=i*1.57;
    scene.add(g);birds.push(g);
   }
 
@@ -190,42 +221,37 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
 
    // === Animasi Rumu & Aru di atas punggungnya ===
    if(rumuParts&&!reduced){
-    // 1. Rumu bernapas naik turun halus & sedikit bergoyang
     const breath=Math.sin(t*1.5);
     rumuParts.root.position.y=rumuParts.baseY+breath*.035;
     rumuParts.root.rotation.z=Math.sin(t*.75)*.009;
     rumuParts.root.rotation.x=Math.sin(t*.55+1.2)*.007;
 
-    // 2. Kepala Rumu menoleh perlahan mengamati hutan
     if(rumuParts.head){
      rumuParts.head.rotation.y=rumuParts.baseHeadRot.y+Math.sin(t*.42)*.08;
      rumuParts.head.rotation.x=rumuParts.baseHeadRot.x+Math.sin(t*.85)*.035;
      rumuParts.head.rotation.z=rumuParts.baseHeadRot.z+Math.sin(t*.58)*.02;
     }
 
-    // 3. Alis batu Rumu bergerak halus ekspresif
     rumuParts.eyebrows.forEach((eb,idx)=>{
      eb.rotation.z=Math.sin(t*1.2+idx*1.5)*.03;
     });
 
-    // 4. Bendera Guild berkibar di atas Rumu
     if(rumuParts.flag){
      rumuParts.flag.rotation.y=Math.sin(t*3.7)*.14;
      rumuParts.flag.rotation.z=Math.sin(t*2.8+.5)*.06;
     }
 
-    // 5. Lentera tenda berayun lembut
     if(rumuParts.lantern){
      rumuParts.lantern.rotation.z=Math.sin(t*1.7)*.04;
     }
 
-    // 6. Aru di atas punggung Rumu bergerak hidup
     if(rumuParts.aru){
-     rumuParts.aru.position.y=rumuParts.baseAruY+Math.sin(t*2.1)*.018;
-     rumuParts.aru.rotation.y=rumuParts.baseAruRotY+Math.sin(t*.52)*.12;
-     // Lengan Aru mengayun halus / memberi isyarat
-     if(rumuParts.aruSleeves[0])rumuParts.aruSleeves[0].rotation.x=Math.sin(t*1.5)*.10;
-     if(rumuParts.aruSleeves[1])rumuParts.aruSleeves[1].rotation.x=-Math.sin(t*1.1)*.06;
+     rumuParts.aru.position.y=rumuParts.baseAruY+Math.sin(t*2.0)*.014;
+     rumuParts.aru.rotation.y=rumuParts.baseAruRotY+Math.sin(t*.6)*.08;
+     if(rumuParts.aruSleeves.length>=2){
+      rumuParts.aruSleeves[0].rotation.z=-.18+Math.sin(t*1.4)*.09;
+      rumuParts.aruSleeves[1].rotation.z=.18-Math.sin(t*1.4)*.09;
+     }
     }
    }
 
@@ -263,19 +289,50 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
     const pm=ca.pond.material as THREE.MeshStandardMaterial;pm.roughness=.12+Math.sin(t*.7)*.07+Math.sin(t*1.2+.9)*.04;
    }else if(ca)for(const sm of ca.smokePool)(sm.material as THREE.MeshBasicMaterial).opacity=0;
 
+   // === Simulasi Warga & Aktivitas Peran Dinamis ===
    const actors=citizens.current.children;const slots=workSlots(actors.map(o=>o.userData.resident),now);
    actors.forEach((o,i)=>{const r=o.userData.resident,m=o.userData.motion as MotionState,rig=o.userData.rig,kit=o.userData.activityKit as ActivityKit;if(!rig||!m||!kit)return;
     const beforeX=o.position.x,beforeZ=o.position.z;let moving=false;
-    if(reduced){const a=recentActivity(r,now),slot=slots.get(r.bed);if(a&&slot!==undefined){const [x,z]=dockPoint(a.impact,slot);o.position.set(x,.015,z);m.phase='work';m.action=a;}else{const [x,z]=ringPoint(m.angle);o.position.set(x,.015,z);m.phase=a?'queue':'stroll';m.action=undefined;}}
+    const roleSpecialty=r.role?(ROLE_SPECIALTIES[r.role]||'guard'):'guard';
+    if(reduced){const a=recentActivity(r,now),slot=slots.get(r.bed);if(a&&slot!==undefined){const [x,z]=dockPoint(a.impact,slot);o.position.set(x,.015,z);m.phase='work';m.action=a;}else{const [x,z]=ringPoint(m.angle,m.rx,m.rz);o.position.set(x,.015,z);m.phase=a?'queue':'stroll';m.action=undefined;}}
     else{const result=advanceMotion(m,[beforeX,beforeZ],r,slots.get(r.bed),now,dt);o.position.set(result.position[0],.015+(result.moving?Math.abs(Math.sin(t*5.4+i))*.018:0),result.position[1]);moving=result.moving;}
     let yaw=o.rotation.y;
     if(m.phase==='work'&&m.action){const target=STATIONS[m.action.impact].position;yaw=Math.atan2(target[0]-o.position.x,target[1]-o.position.z);}
+    else if(m.phase==='idle'){
+     // Saat idle peran: hadap ke arah api unggun dengan gerakan menoleh santai
+     const campFireX=-1.2,campFireZ=4.2;
+     yaw=Math.atan2(campFireX-o.position.x,campFireZ-o.position.z)+Math.sin(t*.45+i)*.32;
+    }
     else if(moving&&Math.hypot(o.position.x-beforeX,o.position.z-beforeZ)>.00001)yaw=Math.atan2(o.position.x-beforeX,o.position.z-beforeZ);
-    o.rotation.y+=Math.atan2(Math.sin(yaw-o.rotation.y),Math.cos(yaw-o.rotation.y))*(reduced?1:1-Math.exp(-Math.min(dt,.1)*10));
-    animateActivity(rig,kit,t+i,m.phase==='work'?m.action?.id:undefined,m.workTime,reduced);
+    o.rotation.y+=Math.atan2(Math.sin(yaw-o.rotation.y),Math.cos(yaw-o.rotation.y))*(reduced?1:1-Math.exp(-Math.min(dt,.1)*8));
+    const activeId=m.phase==='work'?m.action?.id:(m.phase==='idle'?(m.idleAction as any):undefined);
+    animateActivity(rig,kit,t+i,activeId,m.workTime,reduced);
    });
-   if(now-reportedAt>1000){reportedAt=now;setRows(actors.flatMap(o=>{const r=o.userData.resident,a=recentActivity(r,now);return a?[{bed:r.bed,name:r.name,title:a.title,phase:({work:'Sedang bekerja',travel:'Menuju area',queue:'Menunggu giliran',return:'Kembali ke kamp',stroll:'Berjalan santai'} as Record<string,string>)[o.userData.motion.phase]}]:[];}));}
-   if(follow.current){const actor=actors.find(o=>o.userData.bed===follow.current);if(actor){const direction=new THREE.Vector3(actor.position.x,0,actor.position.z).normalize(),target=actor.position.clone().add(new THREE.Vector3(0,.9,0)),cameraPoint=actor.position.clone().addScaledVector(direction,10);cameraPoint.y=7.2;const blend=reduced?1:1-Math.exp(-Math.min(dt,.1)*3);controls.target.lerp(target,blend);camera.position.lerp(cameraPoint,blend);}}
+
+   if(now-reportedAt>1000){
+    reportedAt=now;
+    const roleIdleNames:Record<string,string>={
+     guard:'Berjaga di batas kamp',
+     herbs:'Memeriksa tanaman herbal',
+     explore:'Mengamati arah angin & peta',
+     build:'Memeriksa perkakas rimba',
+     plant:'Merawat petak kebun',
+     ward:'Menenangkan kristal sihir',
+    };
+    setRows(actors.flatMap(o=>{
+     const r=o.userData.resident,a=recentActivity(r,now),m=o.userData.motion as MotionState;
+     if(a){
+      return [{bed:r.bed,name:r.name,title:a.title,phase:({work:'Sedang bekerja',travel:'Menuju area',queue:'Menunggu giliran',return:'Kembali ke kamp'} as Record<string,string>)[m.phase]||'Beraktivitas'}];
+     }
+     const roleSpecialty=r.role?(ROLE_SPECIALTIES[r.role]||'guard'):'guard';
+     if(m.phase==='idle'){
+      return [{bed:r.bed,name:r.name,title:roleIdleNames[roleSpecialty]||'Aktivitas peran',phase:'Aktivitas peran'}];
+     }
+     return [{bed:r.bed,name:r.name,title:'Menjelajahi punggung Rumu',phase:'Berjalan santai'}];
+    }));
+   }
+
+   if(follow.current){const actor=actors.find(o=>o.userData.bed===follow.current);if(actor){const direction=new THREE.Vector3(actor.position.x,0,actor.position.z).normalize(),target=actor.position.clone().add(new THREE.Vector3(0,.9,0)),cameraPoint=actor.position.clone().addScaledVector(direction,12);cameraPoint.y=8.2;const blend=reduced?1:1-Math.exp(-Math.min(dt,.1)*3);controls.target.lerp(target,blend);camera.position.lerp(cameraPoint,blend);}}
    const sight=new THREE.Ray(camera.position,controls.target.clone().sub(camera.position).normalize()),sightLength=camera.position.distanceTo(controls.target);for(const tree of scene.children)if(tree.userData.forest){const hit=follow.current?sight.intersectBox(tree.userData.occlusionBox,new THREE.Vector3()):null;tree.visible=!hit||camera.position.distanceTo(hit)>sightLength-.4;}
    if(pulse.current){const age=(performance.now()-pulse.current.started)/1600;const p=pulse.current.mesh;p.visible=age<1;p.scale.setScalar(.7+Math.min(1,age)*1.5);(p.material as THREE.MeshBasicMaterial).opacity=Math.max(0,1-age);}
    fireflies.rotation.y=reduced?0:t*.016;controls.update();renderer.render(scene,camera);id=requestAnimationFrame(animate);};animate();
@@ -283,17 +340,27 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
  },[]);
 
  useEffect(()=>{const s=state.current;if(!s)return;
-  s.scene.fog=new THREE.FogExp2(night?'#344858':'#dce3ce',.012);
+  s.scene.fog=new THREE.FogExp2(night?'#344858':'#dce3ce',.009);
   s.hemi.intensity=night?1.2:2.4;s.sun.intensity=night?.6:3.4;s.sun.color.set(night?'#a4b9e0':'#fff0cb');
   (s.stars.material as THREE.PointsMaterial).opacity=night?.82:0;
  },[night]);
 
- useEffect(()=>{const s=state.current;if(!s)return;s.controls.autoRotate=focus==='world'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;follow.current=focus.startsWith('activity:')?focus.split(':')[1]:null;if(focus.startsWith('activity:')){/* Smooth following is applied by the render loop. */}else if(focus==='camp'){s.camera.position.set(10,14,14);s.controls.target.set(0,4,0);}else{s.camera.position.set(19,14,23);s.controls.target.set(0,3,0);}s.controls.update();},[focus]);
+ useEffect(()=>{const s=state.current;if(!s)return;s.controls.autoRotate=focus==='world'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;follow.current=focus.startsWith('activity:')?focus.split(':')[1]:null;if(focus.startsWith('activity:')){/* Smooth following is applied by the render loop. */}else if(focus==='camp'){s.camera.position.set(12,15,16);s.controls.target.set(0,4,0);}else{s.camera.position.set(24,18,30);s.controls.target.set(0,3.5,0);}s.controls.update();},[focus]);
 
  useEffect(()=>{const group=citizens.current,visible=residents.slice(0,12),beds=new Set(visible.map(r=>r.bed));for(const child of [...group.children])if(!beds.has(child.userData.bed)){disposeAvatar(child);group.remove(child);}
   visible.forEach((r,i)=>{const signature=JSON.stringify([r.role,r.color,r.gender,r.hairStyle,r.skinTone,r.outfit]);let existing=group.children.find(o=>o.userData.bed===r.bed);
   if(existing&&existing.userData.appearance!==signature){const previous=existing;existing=undefined;group.remove(previous);disposeAvatar(previous);}
-  if(!existing){const rig=createAvatar(r),angle=i*Math.PI*2/visible.length,[x,z]=ringPoint(angle);rig.root.position.set(x,.015,z);rig.root.userData.motion=createMotion(angle);rig.root.userData.activityKit=createActivityKit(rig);rig.root.userData.appearance=signature;group.add(rig.root);existing=rig.root;}
+  if(!existing){
+   const rig=createAvatar(r),angle=i*Math.PI*2/visible.length;
+   const motion=createMotion(angle,r.bed);
+   const [x,z]=ringPoint(angle,motion.rx,motion.rz);
+   rig.root.position.set(x,.015,z);
+   rig.root.userData.motion=motion;
+   rig.root.userData.activityKit=createActivityKit(rig);
+   rig.root.userData.appearance=signature;
+   group.add(rig.root);
+   existing=rig.root;
+  }
   existing.userData.resident=r;
   });},[residents]);
 
@@ -328,9 +395,9 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    </div>
 
    <aside className="world-activity" aria-label="Aktivitas anggota di dunia">
-    <b>{rows.length?`${rows.length} anggota beraktivitas`:'Kamp berjalan tenang'}</b>
+    <b>{rows.length?`${rows.length} petualang aktif`:'Kamp berjalan tenang'}</b>
     {rows.map(r=><button key={r.bed} onClick={()=>onFollow(r.bed)} aria-label={`Ikuti ${r.name}: ${r.title}`}><span>{r.name}</span><small>{r.phase} · {r.title}</small></button>)}
-    <small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota berjalan santai di kamp.'} Maks. 12 anggota tampil.</small>
+    <small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota beraktivitas & berjalan santai di kamp.'} Maks. 12 anggota tampil.</small>
    </aside>
   </>
  );

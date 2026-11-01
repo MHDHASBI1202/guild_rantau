@@ -11,18 +11,11 @@ export const IMPACTS=[
 ] as const;
 export type ImpactKey=typeof IMPACTS[number]['key'];
 export const STATIONS:Record<ImpactKey,{position:[number,number];dock:[number,number]}>= {
- wood:{position:[-7,5],dock:[-5.5,5]},herbs:{position:[-8,2],dock:[-6.5,2]},
- defense:{position:[6,7],dock:[5.8,5.65]},comfort:{position:[-4,8],dock:[-4,6.85]},
- exploration:{position:[4,10],dock:[4,8.2]},craft:{position:[8,2],dock:[6.7,2]},
- farm:{position:[-9,-4],dock:[-6.3,-3.6]},magic:{position:[8,-3],dock:[6.3,-3]},
+ wood:{position:[-10,7],dock:[-8,6.8]},herbs:{position:[-11,2.5],dock:[-9,2.5]},
+ defense:{position:[9,9.5],dock:[8.5,8]},comfort:{position:[-5,11],dock:[-5,9.5]},
+ exploration:{position:[6,13],dock:[6,11]},craft:{position:[11,2.5],dock:[9.2,2.5]},
+ farm:{position:[-12,-5],dock:[-9.5,-4.2]},magic:{position:[11,-4.5],dock:[9,-4]},
 };
-export const WORK_HEIGHT=.82,WORK_REACH=.70;
-/** Shared furniture and actor frame: both workers face the same work surface. */
-export function stationFrame(key:ImpactKey,slot=0){
- const s=STATIONS[key],dx=s.position[0]-s.dock[0],dz=s.position[1]-s.dock[1],length=Math.hypot(dx,dz),x=dx/length,z=dz/length;
- const dock:[number,number]=[s.dock[0]-z*slot*.95,s.dock[1]+x*slot*.95];
- return {dock,yaw:Math.atan2(x,z),surface:[dock[0]+x*WORK_REACH,dock[1]+z*WORK_REACH] as [number,number]};
-}
 export type WorldProgress=Record<ImpactKey,number>&{updatedAt:number};
 export const EMPTY_WORLD:WorldProgress={wood:0,herbs:0,defense:0,comfort:0,exploration:0,craft:0,farm:0,magic:0,updatedAt:0};
 export const ACTIVITIES=[
