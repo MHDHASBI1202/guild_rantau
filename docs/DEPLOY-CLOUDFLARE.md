@@ -24,9 +24,9 @@ Di Google Cloud Console / Google Auth Platform:
 
 1. Buat atau pilih proyek untuk Guild Rantau.
 2. Isi nama aplikasi, email dukungan, dan kontak pengembang.
-3. Gunakan audience External untuk pemain umum. Saat aplikasi masih Testing, hanya akun tester yang dapat masuk; atur status sesuai peluncuran publik.
+3. Gunakan audience External untuk pemain umum. Tinjau status publikasi dan ketentuan pengguna uji pada Google Auth Platform sebelum peluncuran publik.
 4. Buat OAuth Client ID dengan tipe **Web application**.
-5. Tambahkan origin website Workers milikmu di **Authorized JavaScript origins**, tanpa path, misalnya `https://guild-rantau.NAMA-SUBDOMAIN.workers.dev`.
+5. Tambahkan origin website Workers milikmu di **Authorized JavaScript origins**, tanpa path. Untuk deployment Guild Rantau ini, nilai lengkapnya adalah `https://guild-rantau.alah6075.workers.dev`. Bagian subdomain akun `alah6075` harus ikut ditulis. Login Google menolak origin yang tidak cocok dengan error `origin_mismatch`.
 6. Untuk pengembangan, tambahkan `http://localhost:5174` dan `http://127.0.0.1:5174` bila diperlukan.
 7. Isi Client ID publik ke `vars.GOOGLE_CLIENT_ID` pada `wrangler.jsonc`.
 
