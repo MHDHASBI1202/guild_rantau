@@ -1,3 +1,5 @@
+import {getMemberLevel} from './milestones';
+
 export const SLOTS=['baju','topi','celana','aksesori','perlengkapan'] as const;
 export type Slot=typeof SLOTS[number];
 export type Rarity='awal'|'unik'|'langka'|'legendaris';
@@ -31,19 +33,6 @@ export const itemKey=(item:Pick<Item,'slot'|'id'>)=>`${item.slot}:${item.id}`;
 export const STARTER=ITEMS.filter(i=>i.rarity==='awal').map(itemKey);
 export const findItem=(slot:Slot,id:string)=>ITEMS.find(i=>i.slot===slot&&i.id===id);
 export type WardrobeState={owned:string[];equipped:Loadout};
-export function starterWardrobe(input?:unknown):WardrobeState{
- const equipped={...DEFAULT_LOADOUT};
- if(input!==undefined){
-  if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Pilihan pakaian tidak valid.');
-  if(Object.keys(input).some(k=>!SLOTS.includes(k as Slot)))throw Error('Kategori pakaian tidak valid.');
-  for(const slot of SLOTS){
-   const id=(input as Record<string,unknown>)[slot];if(id===undefined)continue;
-   if(typeof id!=='string'||!STARTER.includes(`${slot}:${id}`))throw Error('Pilih item awal yang tersedia. Item hadiah level masih terkunci.');
-   equipped[slot]=id;
-  }
- }
- return {owned:[...STARTER],equipped};
-}
 export function parseCosmetics(raw:unknown):WardrobeState{
  let value:Partial<WardrobeState>={};try{value=typeof raw==='string'?JSON.parse(raw):raw as Partial<WardrobeState>||{};}catch{}
  if(!value||typeof value!=='object')value={};
@@ -56,4 +45,4 @@ export function spinPool(owned:string[]){return ITEMS.filter(i=>i.rarity!=='awal
 export function spinOdds(owned:string[]){const pool=spinPool(owned);const groups=(Object.entries(WEIGHTS) as [keyof typeof WEIGHTS,number][]).filter(([r])=>pool.some(i=>i.rarity===r));const total=groups.reduce((s,[,w])=>s+w,0);return groups.map(([rarity,weight])=>({rarity,percent:weight/total*100,count:pool.filter(i=>i.rarity===rarity).length}));}
 function randomInt(max:number){const limit=4294967296-4294967296%max;let n:number;do{n=crypto.getRandomValues(new Uint32Array(1))[0];}while(n>=limit);return n%max;}
 export function drawItem(owned:string[]){const pool=spinPool(owned);if(!pool.length)return null;const groups=Object.entries(WEIGHTS).filter(([r])=>pool.some(i=>i.rarity===r));let n=randomInt(groups.reduce((s,[,w])=>s+w,0));let rarity=groups[0][0];for(const [r,w] of groups){if(n<w){rarity=r;break;}n-=w;}const choices=pool.filter(i=>i.rarity===rarity);return choices[randomInt(choices.length)];}
-export function ticketsFor(xp:number,highest:number,used:number){return Math.max(0,Math.max(highest,1+Math.floor(xp/100))-1-used);}
+export function ticketsFor(xp:number,highest:number,used:number){return Math.max(0,Math.max(highest,getMemberLevel(xp))-1-used);}

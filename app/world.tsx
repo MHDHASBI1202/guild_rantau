@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import {createAvatar,animateAvatar,disposeAvatar} from './avatar-model';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {getRumuMilestone} from './milestones';
 
 export const RUMU_ARU_LORE = [
  {speaker:'Aru',role:'Pengurus Guild',text:'Anggotanya baru sedikit, ranjangnya sudah disiapkan dua. Optimis dulu!'},
@@ -25,7 +26,7 @@ export const RUMU_ARU_LORE = [
  {speaker:'Aru',role:'Pengurus Guild',text:'Terima kasih sudah singgah di Guild Rantau. Setiap langkahmu adalah bagian dari kisah ini.'},
 ];
 
-export default function World({night,focus,onSelect,onFollow,residents,world=EMPTY_WORLD}:{night:boolean;focus:string;onSelect:(v:string)=>void;onFollow:(bed:string)=>void;world?:WorldProgress;residents:{name:string;role:string;color:string;activity:string;lastAction?:number;bed:string;outfit?:Loadout;gender?:Gender|null;hairStyle?:HairStyle;skinTone?:SkinTone}[]}){
+export default function World({night,focus,onSelect,onFollow,residents,world=EMPTY_WORLD,totalMembers=1}:{night:boolean;focus:string;onSelect:(v:string)=>void;onFollow:(bed:string)=>void;world?:WorldProgress;residents:{name:string;role:string;color:string;activity:string;lastAction?:number;bed:string;outfit?:Loadout;gender?:Gender|null;hairStyle?:HairStyle;skinTone?:SkinTone}[];totalMembers?:number}){
  const follow=useRef<string|null>(null);
  const [rows,setRows]=useState<{bed:string;name:string;title:string;phase:string}[]>([]);
  const [loreIndex,setLoreIndex]=useState(0);
@@ -103,7 +104,8 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    rumu=g.scene;
    const box=new THREE.Box3().setFromObject(rumu);
    const size=box.getSize(new THREE.Vector3());
-   const scale=12/Math.max(size.x,size.z);
+   const rumuMilestone=getRumuMilestone(totalMembers);
+   const scale=(12/Math.max(size.x,size.z))*rumuMilestone.current.scaleMultiplier;
    rumu.scale.setScalar(scale);
    const box2=new THREE.Box3().setFromObject(rumu);
    const c=box2.getCenter(new THREE.Vector3());

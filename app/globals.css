@@ -47,3 +47,15 @@
 .night .aru-lore-text{color:#e6ece0}
 .night .aru-lore-hint{color:#dfbe7c}
 @media(max-width:520px){.aru-lore-bubble{left:10px;top:48px;max-width:calc(100% - 175px);padding:8px 10px}.aru-lore-speaker small,.aru-lore-hint{display:none}.aru-lore-text{font-size:9px;line-height:1.4}}
+
+
+/* === Rumu Milestone Box === */
+.rumu-milestone-box{margin:18px 0;padding:14px 16px;background:#edf3e5;border:1px solid #d8e2cd;border-radius:8px}
+.milestone-heading{display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:8px;color:#4f6d45}
+.milestone-heading b{font-weight:600}
+.milestone-heading span{font-size:10px;color:#7e9273}
+.milestone-sub{display:block;font-size:9px;line-height:1.6;color:#85967b;margin-top:7px}
+.night .rumu-milestone-box{background:#2a3945;border-color:#425567}
+.night .milestone-heading{color:#c5dbb5}
+.night .milestone-heading span{color:#8ea593}
+.night .milestone-sub{color:#9cb2a3}
