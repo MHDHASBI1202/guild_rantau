@@ -14,6 +14,7 @@ import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {getRumuMilestone} from './milestones';
 
 export const RUMU_ARU_LORE = [
+ {speaker:'Aru',role:'Pengurus Guild',text:'Barak sudah berdiri! Anggota guild punya tempat berlindung yang layak sekarang.'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Anggotanya baru sedikit, ranjangnya sudah disiapkan dua. Optimis dulu!'},
  {speaker:'Rumu',role:'Monster Batu Lv. 1',text:'Pelan-pelan saja. Yang penting kita jalan bersama.'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Di punggung Rumu kita aman. Hutan Bisik boleh berkabut, tapi rumah kita tetap hangat.'},
@@ -195,6 +196,33 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
     flag,
     lantern
    };
+
+    // === Papan kayu + ranjang di punggung Rumu (Level 2: 11+ anggota) ===
+    const deckMat2=new THREE.MeshStandardMaterial({color:'#9a7a52',flatShading:true,roughness:.9});
+    const railMat2=new THREE.MeshStandardMaterial({color:'#7c6038',flatShading:true,roughness:.95});
+    const mk2=(geo2:THREE.BufferGeometry,m2:THREE.Material,px:number,py:number,pz:number,par:THREE.Object3D)=>{const me=new THREE.Mesh(geo2,m2);me.position.set(px,py,pz);me.castShadow=true;me.receiveShadow=true;par.add(me);return me;};
+    const rumuDeck=new THREE.Group();rumuDeck.name='rumu-deck';
+    mk2(new THREE.BoxGeometry(.58,.025,.42),deckMat2,0,.01,-.04,rumuDeck);
+    mk2(new THREE.BoxGeometry(.30,.020,.22),deckMat2,-.40,.008,-.05,rumuDeck);
+    mk2(new THREE.BoxGeometry(.28,.020,.20),deckMat2,.39,.008,-.04,rumuDeck);
+    mk2(new THREE.BoxGeometry(.22,.016,.16),deckMat2,0,.005,.22,rumuDeck);
+    for(const [rpx,rpz] of [[-0.27,-.19],[0.27,-.19],[-0.27,.19],[0.27,.19]] as [number,number][]){mk2(new THREE.BoxGeometry(.008,.06,.008),railMat2,rpx,.04,rpz,rumuDeck);}
+    mk2(new THREE.BoxGeometry(.55,.005,.006),railMat2,0,.065,-.19,rumuDeck);
+    mk2(new THREE.BoxGeometry(.006,.005,.40),railMat2,-.27,.065,.0,rumuDeck);
+    mk2(new THREE.BoxGeometry(.006,.005,.40),railMat2,.27,.065,.0,rumuDeck);
+    const bfMat2=new THREE.MeshStandardMaterial({color:'#8c7454',flatShading:true,roughness:.9});
+    const bmMat2=new THREE.MeshStandardMaterial({color:'#c8a87e',flatShading:true,roughness:.85});
+    const bCols2=['#7a9e8a','#b47a5a','#8a8fb4','#a07a6a','#7a9090','#c4a07a'];
+    const bPos2:[number,number,number][]=[[-0.16,.012,-.10],[0,.012,-.10],[.16,.012,-.10],[-0.16,.012,.08],[0,.012,.08],[.16,.012,.08]];
+    bPos2.forEach(([bx2,by2,bz2],bi2)=>{
+     mk2(new THREE.BoxGeometry(.085,.010,.050),bfMat2,bx2,by2,bz2,rumuDeck);
+     mk2(new THREE.BoxGeometry(.080,.006,.044),bmMat2,bx2,by2+.008,bz2,rumuDeck);
+     const blk2=new THREE.Mesh(new THREE.BoxGeometry(.078,.004,.028),new THREE.MeshStandardMaterial({color:bCols2[bi2%6],flatShading:true,roughness:.85}));blk2.position.set(bx2,by2+.013,bz2+.008);rumuDeck.add(blk2);
+     mk2(new THREE.BoxGeometry(.028,.006,.014),bfMat2,bx2,by2+.014,bz2-.016,rumuDeck);
+    });
+    rumuDeck.position.set(0,.72,-.04);
+    rumu.add(rumuDeck);
+
   },undefined,()=>{el.dataset.error='true';});
 
   const fireflies=new THREE.Group();for(let i=0;i<30;i++){const f=new THREE.Mesh(new THREE.SphereGeometry(.048,4,4),new THREE.MeshBasicMaterial({color:'#ffe5a0'}));f.position.set((random()-.5)*46,1+random()*7,(random()-.5)*46);fireflies.add(f);}scene.add(fireflies);

@@ -104,7 +104,7 @@ export const RUMU_LEVEL_MILESTONES: RumuMilestone[] = [
   minMembers: 5,
   title: 'Penjaga Lembah Hijau',
   scaleMultiplier: 1.08,
-  description: 'Langkahnya kian mantap. Lumut hijau di punggungnya tumbuh subur menyambut lebih banyak sahabat.',
+  description: 'Langkahnya kian mantap. Lumut hijau di punggungnya tumbuh subur — dan Barak Guild kini berdiri tegak, tempat 11 perantau beristirahat setelah hari yang panjang.',
   quote: 'Krrr... kawan-kawan baru membawa rasa hangat di punggungku.',
  },
  {
