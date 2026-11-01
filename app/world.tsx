@@ -12,14 +12,48 @@ import {createAvatar,animateAvatar,disposeAvatar} from './avatar-model';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 
+export const RUMU_ARU_LORE = [
+ {speaker:'Aru',role:'Pengurus Guild',text:'Anggotanya baru sedikit, ranjangnya sudah disiapkan dua. Optimis dulu!'},
+ {speaker:'Rumu',role:'Monster Batu Lv. 1',text:'Pelan-pelan saja. Yang penting kita jalan bersama.'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Di punggung Rumu kita aman. Hutan Bisik boleh berkabut, tapi rumah kita tetap hangat.'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Kayu dan daun obat yang kamu kumpulkan sangat berarti buat masa depan kamp kita!'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Barak buat tidur, atau Menara buat berjaga? Arah guild kita tentukan bareng.'},
+ {speaker:'Rumu',role:'Monster Batu Lv. 1',text:'*Krrr-krrr...* (Rumu mendengkur pelan, menikmati segarnya angin Hutan Bisik).'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Rumu ini monster batu level satu. Badannya besar, hatinya jauh lebih besar!'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Kalau kamu lelah berkelana hari ini, jangan lupa istirahat di ranjang kamp ya.'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Dari satu tenda kecil ini, suatu hari nanti kita akan jadi kota berjalan megah!'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Terima kasih sudah singgah di Guild Rantau. Setiap langkahmu adalah bagian dari kisah ini.'},
+];
+
 export default function World({night,focus,onSelect,onFollow,residents,world=EMPTY_WORLD}:{night:boolean;focus:string;onSelect:(v:string)=>void;onFollow:(bed:string)=>void;world?:WorldProgress;residents:{name:string;role:string;color:string;activity:string;lastAction?:number;bed:string;outfit?:Loadout;gender?:Gender|null;hairStyle?:HairStyle;skinTone?:SkinTone}[]}){
  const follow=useRef<string|null>(null);
  const [rows,setRows]=useState<{bed:string;name:string;title:string;phase:string}[]>([]);
+ const [loreIndex,setLoreIndex]=useState(0);
+ const [loreVisible,setLoreVisible]=useState(true);
  const previousWorld=useRef(EMPTY_WORLD);const pulse=useRef<{mesh:THREE.Mesh;started:number}|null>(null);
  const environment=useRef(new THREE.Group());const citizens=useRef(new THREE.Group());
  const mount=useRef<HTMLDivElement>(null);const select=useRef(onSelect);select.current=onSelect;
  const campAnimRef=useRef<CampAnim|null>(null);
  const state=useRef<{scene:THREE.Scene;sun:THREE.DirectionalLight;hemi:THREE.HemisphereLight;camera:THREE.PerspectiveCamera;controls:OrbitControls;stars:THREE.Points}|null>(null);
+
+ const nextLore=()=>{
+  setLoreVisible(false);
+  setTimeout(()=>{
+   setLoreIndex(i=>(i+1)%RUMU_ARU_LORE.length);
+   setLoreVisible(true);
+  },240);
+ };
+
+ useEffect(()=>{
+  const timer=setInterval(()=>{
+   setLoreVisible(false);
+   setTimeout(()=>{
+    setLoreIndex(i=>(i+1)%RUMU_ARU_LORE.length);
+    setLoreVisible(true);
+   },260);
+  },8500);
+  return()=>clearInterval(timer);
+ },[]);
 
  useEffect(()=>{const el=mount.current!;let renderer:THREE.WebGLRenderer;
   try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}catch{el.innerHTML='<p class="webgl-fallback">Kabut menutupi Rumu. Kamu tetap bisa menjelajahi kamp lewat menu di bawah.</p>';return;}
@@ -33,7 +67,8 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
   const island=new THREE.Mesh(new THREE.CylinderGeometry(20,17,2.5,9),mat('#a2b287'));island.position.y=-1.45;island.receiveShadow=true;scene.add(island);
   const trail=new THREE.Mesh(new THREE.PlaneGeometry(7,42),mat('#c8b898'));trail.rotation.x=-Math.PI/2;trail.rotation.z=-.13;trail.position.y=-.17;scene.add(trail);
   let seed=27;const random=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};
-  // Pohon dengan tambahan data angin — windPhase & windAmp unik tiap pohon
+
+  // Pohon dengan tambahan data angin
   const forestTrees:THREE.Group[]=[];
   for(let i=0;i<35;i++){
    const angle=random()*Math.PI*2,r=11+random()*7;const x=Math.cos(angle)*r,z=Math.sin(angle)*r;if(Math.abs(x)<4)continue;
@@ -46,11 +81,68 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    tree.updateMatrixWorld(true);tree.userData.occlusionBox=new THREE.Box3().setFromObject(tree).expandByScalar(.3);
    scene.add(tree);forestTrees.push(tree);
   }
+
+  // Objek Rumu, Aru, & part di atas Rumu
   let rumu:THREE.Group|undefined;let dead=false;
-  new GLTFLoader().load('/assets/rumu.glb',g=>{if(dead)return;rumu=g.scene;const box=new THREE.Box3().setFromObject(rumu);const size=box.getSize(new THREE.Vector3());const scale=12/Math.max(size.x,size.z);rumu.scale.setScalar(scale);const box2=new THREE.Box3().setFromObject(rumu);const c=box2.getCenter(new THREE.Vector3());rumu.position.set(-c.x,-box2.min.y,-c.z);rumu.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});scene.add(rumu);},undefined,()=>{el.dataset.error='true';});
+  let rumuParts:{
+   root:THREE.Group;
+   baseY:number;
+   head?:THREE.Object3D;
+   baseHeadRot:THREE.Euler;
+   eyebrows:THREE.Object3D[];
+   aru?:THREE.Object3D;
+   baseAruY:number;
+   baseAruRotY:number;
+   aruSleeves:THREE.Object3D[];
+   flag?:THREE.Object3D;
+   lantern?:THREE.Object3D;
+  }|null=null;
+
+  new GLTFLoader().load('/assets/rumu.glb',g=>{
+   if(dead)return;
+   rumu=g.scene;
+   const box=new THREE.Box3().setFromObject(rumu);
+   const size=box.getSize(new THREE.Vector3());
+   const scale=12/Math.max(size.x,size.z);
+   rumu.scale.setScalar(scale);
+   const box2=new THREE.Box3().setFromObject(rumu);
+   const c=box2.getCenter(new THREE.Vector3());
+   rumu.position.set(-c.x,-box2.min.y,-c.z);
+   rumu.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});
+   scene.add(rumu);
+
+   // Ambil node internal untuk animasi ekspresif
+   const head=rumu.getObjectByName('Head_ROOT');
+   const eyebrows=[
+    rumu.getObjectByName('Soft stone eyebrow'),
+    rumu.getObjectByName('Soft stone eyebrow.001')
+   ].filter(Boolean) as THREE.Object3D[];
+   const aru=rumu.getObjectByName('Aru_ROOT');
+   const aruSleeves=[
+    rumu.getObjectByName('Aru upper sleeve'),
+    rumu.getObjectByName('Aru upper sleeve.001')
+   ].filter(Boolean) as THREE.Object3D[];
+   const flag=rumu.getObjectByName('Guild flag');
+   const lantern=rumu.getObjectByName('Lantern_ROOT');
+
+   rumuParts={
+    root:rumu,
+    baseY:rumu.position.y,
+    head,
+    baseHeadRot:head?head.rotation.clone():new THREE.Euler(),
+    eyebrows,
+    aru,
+    baseAruY:aru?aru.position.y:0,
+    baseAruRotY:aru?aru.rotation.y:0,
+    aruSleeves,
+    flag,
+    lantern
+   };
+  },undefined,()=>{el.dataset.error='true';});
+
   const fireflies=new THREE.Group();for(let i=0;i<22;i++){const f=new THREE.Mesh(new THREE.SphereGeometry(.045,4,4),new THREE.MeshBasicMaterial({color:'#ffe5a0'}));f.position.set((random()-.5)*22,1+random()*6,(random()-.5)*22);fireflies.add(f);}scene.add(fireflies);
 
-  // === Awan melayang / Clouds — tidak cast shadow, update tiap 2 frame ===
+  // === Awan melayang / Clouds ===
   const clouds:THREE.Group[]=[];
   const cloudMat=new THREE.MeshStandardMaterial({color:'#f0f4e8',flatShading:true,roughness:1});
   for(let i=0;i<6;i++){
@@ -63,14 +155,14 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    scene.add(g);clouds.push(g);
   }
 
-  // === Bintang malam / Stars — Points geometry, sangat hemat ===
+  // === Bintang malam / Stars ===
   const starPos:number[]=[];
   for(let i=0;i<180;i++){const u=(i+.5)/180;const phi=Math.acos(1-u*.96);const th=i*2.39996;const r=100+i*.5;starPos.push(Math.sin(phi)*Math.cos(th)*r,Math.cos(phi)*r+8,Math.sin(phi)*Math.sin(th)*r);}
   const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starPos,3));
   const stars=new THREE.Points(starGeo,new THREE.PointsMaterial({color:'#fffde8',size:.65,sizeAttenuation:true,transparent:true,opacity:0}));
   scene.add(stars);
 
-  // === Burung kecil / Birds — geometri micro, tidak cast shadow ===
+  // === Burung kecil / Birds ===
   const birds:THREE.Group[]=[];
   const birdMat=new THREE.MeshBasicMaterial({color:'#4a3f35',side:THREE.DoubleSide});
   for(let i=0;i<4;i++){
@@ -93,22 +185,62 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
   let reportedAt=0;let frame=0;
 
   const animate=()=>{const dt=clock.getDelta(),t=clock.elapsedTime,now=Date.now();frame++;
-   if(rumu&&!reduced)rumu.position.y+=Math.sin(t*1.6)*.0009;
 
-   // === Angin pohon / Tree wind — hanya rotation, sangat murah ===
+   // === Animasi Rumu & Aru di atas punggungnya ===
+   if(rumuParts&&!reduced){
+    // 1. Rumu bernapas naik turun halus & sedikit bergoyang
+    const breath=Math.sin(t*1.5);
+    rumuParts.root.position.y=rumuParts.baseY+breath*.035;
+    rumuParts.root.rotation.z=Math.sin(t*.75)*.009;
+    rumuParts.root.rotation.x=Math.sin(t*.55+1.2)*.007;
+
+    // 2. Kepala Rumu menoleh perlahan mengamati hutan
+    if(rumuParts.head){
+     rumuParts.head.rotation.y=rumuParts.baseHeadRot.y+Math.sin(t*.42)*.08;
+     rumuParts.head.rotation.x=rumuParts.baseHeadRot.x+Math.sin(t*.85)*.035;
+     rumuParts.head.rotation.z=rumuParts.baseHeadRot.z+Math.sin(t*.58)*.02;
+    }
+
+    // 3. Alis batu Rumu bergerak halus ekspresif
+    rumuParts.eyebrows.forEach((eb,idx)=>{
+     eb.rotation.z=Math.sin(t*1.2+idx*1.5)*.03;
+    });
+
+    // 4. Bendera Guild berkibar di atas Rumu
+    if(rumuParts.flag){
+     rumuParts.flag.rotation.y=Math.sin(t*3.7)*.14;
+     rumuParts.flag.rotation.z=Math.sin(t*2.8+.5)*.06;
+    }
+
+    // 5. Lentera tenda berayun lembut
+    if(rumuParts.lantern){
+     rumuParts.lantern.rotation.z=Math.sin(t*1.7)*.04;
+    }
+
+    // 6. Aru di atas punggung Rumu bergerak hidup
+    if(rumuParts.aru){
+     rumuParts.aru.position.y=rumuParts.baseAruY+Math.sin(t*2.1)*.018;
+     rumuParts.aru.rotation.y=rumuParts.baseAruRotY+Math.sin(t*.52)*.12;
+     // Lengan Aru mengayun halus / memberi isyarat
+     if(rumuParts.aruSleeves[0])rumuParts.aruSleeves[0].rotation.x=Math.sin(t*1.5)*.10;
+     if(rumuParts.aruSleeves[1])rumuParts.aruSleeves[1].rotation.x=-Math.sin(t*1.1)*.06;
+    }
+   }
+
+   // === Angin pohon / Tree wind ===
    if(!reduced)for(const tree of forestTrees){
     tree.rotation.x=Math.sin(t*.72+tree.userData.windPhase)*(tree.userData.windAmp as number);
     tree.rotation.z=Math.sin(t*.55+tree.userData.windPhase+1.1)*(tree.userData.windAmp as number)*.65;
    }
 
-   // === Awan / Clouds — orbit pelan, tiap 2 frame ===
+   // === Awan / Clouds ===
    if(!reduced&&frame%2===0)for(const c of clouds){
     const a=(c.userData.cloudAngle as number)+(c.userData.cloudSpeed as number)*dt;
     c.userData.cloudAngle=a;
     c.position.x=Math.cos(a)*(c.userData.cloudR as number);c.position.z=Math.sin(a)*(c.userData.cloudR as number);
    }
 
-   // === Burung / Birds — orbit + kepak sayap ===
+   // === Burung / Birds ===
    if(!reduced)for(const b of birds){
     const a=(b.userData.birdAngle as number)+(b.userData.birdSpeed as number)*dt;b.userData.birdAngle=a;
     b.position.x=Math.cos(a)*(b.userData.birdR as number);b.position.z=Math.sin(a)*(b.userData.birdR as number);
@@ -122,14 +254,10 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    // === Api unggun + asap + kolam ===
    const ca=campAnimRef.current;
    if(ca&&!reduced){
-    // Nyala api bergoyang
     for(const fl of ca.flames){const ph=fl.userData.phaseOffset as number;fl.scale.x=.80+Math.sin(t*7.2+ph)*.20;fl.scale.z=.80+Math.sin(t*5.8+ph+1.2)*.22;fl.scale.y=.65+Math.sin(t*4.1+ph)*.35;fl.rotation.y+=.06;(fl.material as THREE.MeshBasicMaterial).opacity=.72+Math.sin(t*5.5+ph)*.18;}
-    // Cahaya api berkedip
     ca.emberLight.intensity=2.2+Math.sin(t*8.1)*.9+Math.sin(t*13.3)*.4;
-    // Asap naik dari api — recycled pool, tidak buat object baru
     const fp=ca.emberLight.position;
     for(const sm of ca.smokePool){const u=((t*.14+(sm.userData.phaseOffset as number))%1+1)%1;sm.position.set(fp.x+(u-.5)*.35,fp.y-.15+u*3.2,fp.z+(u-.5)*.35);(sm.material as THREE.MeshBasicMaterial).opacity=Math.sin(u*Math.PI)*.32;}
-    // Kilau permukaan air
     const pm=ca.pond.material as THREE.MeshStandardMaterial;pm.roughness=.12+Math.sin(t*.7)*.07+Math.sin(t*1.2+.9)*.04;
    }else if(ca)for(const sm of ca.smokePool)(sm.material as THREE.MeshBasicMaterial).opacity=0;
 
@@ -149,13 +277,12 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    const sight=new THREE.Ray(camera.position,controls.target.clone().sub(camera.position).normalize()),sightLength=camera.position.distanceTo(controls.target);for(const tree of scene.children)if(tree.userData.forest){const hit=follow.current?sight.intersectBox(tree.userData.occlusionBox,new THREE.Vector3()):null;tree.visible=!hit||camera.position.distanceTo(hit)>sightLength-.4;}
    if(pulse.current){const age=(performance.now()-pulse.current.started)/1600;const p=pulse.current.mesh;p.visible=age<1;p.scale.setScalar(.7+Math.min(1,age)*1.5);(p.material as THREE.MeshBasicMaterial).opacity=Math.max(0,1-age);}
    fireflies.rotation.y=reduced?0:t*.016;controls.update();renderer.render(scene,camera);id=requestAnimationFrame(animate);};animate();
-  return()=>{dead=true;cancelAnimationFrame(id);observer.disconnect();controls.dispose();disposeAvatar(scene);renderer.dispose();el.replaceChildren();state.current=null;campAnimRef.current=null;};
+  return()=>{dead=true;cancelAnimationFrame(id);observer.disconnect();controls.dispose();disposeAvatar(scene);renderer.dispose();el.replaceChildren();state.current=null;campAnimRef.current=null;rumuParts=null;};
  },[]);
 
  useEffect(()=>{const s=state.current;if(!s)return;
   s.scene.fog=new THREE.FogExp2(night?'#344858':'#dce3ce',.012);
   s.hemi.intensity=night?1.2:2.4;s.sun.intensity=night?.6:3.4;s.sun.color.set(night?'#a4b9e0':'#fff0cb');
-  // Bintang muncul saat mode malam
   (s.stars.material as THREE.PointsMaterial).opacity=night?.82:0;
  },[night]);
 
@@ -170,11 +297,39 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
 
  useEffect(()=>{const g=environment.current;
   while(g.children.length){const child=g.children[0];disposeAvatar(child);g.remove(child);}
-  campAnimRef.current=null; // reset dulu agar render loop tidak akses objek yang sudah di-dispose
+  campAnimRef.current=null;
   const {root:camp,anim}=createCampEnvironment(world);g.add(camp);campAnimRef.current=anim;pulse.current=null;
   const changed=IMPACTS.find(i=>world[i.key]>previousWorld.current[i.key]);
   if(changed&&previousWorld.current.updatedAt&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const target=camp.getObjectByName('camp-'+changed.key);if(target){const ring=new THREE.Mesh(new THREE.RingGeometry(.65,.75,24),new THREE.MeshBasicMaterial({color:changed.color,transparent:true,opacity:1,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.copy(target.position);ring.position.y=.04;g.add(ring);pulse.current={mesh:ring,started:performance.now()};}}
   previousWorld.current=world;},[world]);
 
- return <><div ref={mount} className="world-canvas" role="img" aria-label="Dunia 3D Rumu. Geser untuk memutar, cubit untuk memperbesar."/><aside className="world-activity" aria-label="Aktivitas anggota di dunia"><b>{rows.length?`${rows.length} anggota beraktivitas`:'Kamp berjalan tenang'}</b>{rows.map(r=><button key={r.bed} onClick={()=>onFollow(r.bed)} aria-label={`Ikuti ${r.name}: ${r.title}`}><span>{r.name}</span><small>{r.phase} · {r.title}</small></button>)}<small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota berjalan santai di kamp.'} Maks. 12 anggota tampil.</small></aside></>;
+ return (
+  <>
+   <div ref={mount} className="world-canvas" role="img" aria-label="Dunia 3D Rumu. Geser untuk memutar, cubit untuk memperbesar."/>
+   
+   {/* Gelembung Suara / Lore & Penyemangat Aru & Rumu */}
+   <div 
+    className={`aru-lore-bubble ${loreVisible?'visible':'fading'}`}
+    onClick={nextLore}
+    role="button"
+    tabIndex={0}
+    onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')nextLore();}}
+    aria-label="Pesan penyemangat dari Aru dan Rumu"
+    title="Klik untuk mendengar pesan lain"
+   >
+    <div className="aru-lore-header">
+     <span className="aru-lore-avatar">{RUMU_ARU_LORE[loreIndex].speaker==='Rumu'?'🪨':'🏕️'}</span>
+     <span className="aru-lore-speaker">{RUMU_ARU_LORE[loreIndex].speaker} <small>· {RUMU_ARU_LORE[loreIndex].role}</small></span>
+     <span className="aru-lore-hint">Klik 💬</span>
+    </div>
+    <p className="aru-lore-text">"{RUMU_ARU_LORE[loreIndex].text}"</p>
+   </div>
+
+   <aside className="world-activity" aria-label="Aktivitas anggota di dunia">
+    <b>{rows.length?`${rows.length} anggota beraktivitas`:'Kamp berjalan tenang'}</b>
+    {rows.map(r=><button key={r.bed} onClick={()=>onFollow(r.bed)} aria-label={`Ikuti ${r.name}: ${r.title}`}><span>{r.name}</span><small>{r.phase} · {r.title}</small></button>)}
+    <small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota berjalan santai di kamp.'} Maks. 12 anggota tampil.</small>
+   </aside>
+  </>
+ );
 }
