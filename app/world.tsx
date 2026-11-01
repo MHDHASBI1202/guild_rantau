@@ -520,9 +520,9 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    </div>
 
    <aside className="world-activity" aria-label="Aktivitas anggota di dunia">
-    <b>{rows.length?`${rows.length} petualang aktif`:'Kamp berjalan tenang'}</b>
+    <b>{rows.length?`${rows.length} petualang terlihat`:'Kamp berjalan tenang'}</b>
     {rows.map(r=><button key={r.bed} onClick={()=>onFollow(r.bed)} aria-label={`Ikuti ${r.name}: ${r.title}`}><span>{r.name}</span><small>{r.phase} · {r.title}</small></button>)}
-    <small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota beraktivitas & berjalan santai di kamp.'} Maks. 12 anggota tampil.</small>
+    <small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota beraktivitas & berjalan santai di kamp.'} Maks. 12 anggota tampil. Bukan status online.</small>
    </aside>
   </>
  );

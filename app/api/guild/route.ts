@@ -7,28 +7,23 @@ import {getChatGPTUser} from '../../chatgpt-auth';
 import {SLOTS,findItem,itemKey,parseCosmetics,drawItem,ticketsFor,type Slot} from '../../cosmetics';
 import {getMemberLevel} from '../../milestones';
 import {BARTER_CATALOG} from '../../barter-options';
+import {ACTIVE_MEMBER_WINDOW_MS,MEMBER_HEARTBEAT_INTERVAL_MS,MEMBER_HEARTBEAT_SQL,MEMBER_COUNTS_SQL} from '../../member-presence';
 const colors=['#e99552','#8baf9c','#8f9fc8','#c68cab'];
 type Stored={name:string;role:string;color:string;gender:string;hairStyle:string;skinTone:string;xp:number;wood:number;herbs:number;lastAction:number;activity:string;joinedAt:number;bed:string;cosmetics:string;highestLevel:number;spinsUsed:number};
 const privateFields='name,role,color,gender,hair_style AS hairStyle,skin_tone AS skinTone,xp,wood,herbs,last_action AS lastAction,activity,joined_at AS joinedAt,bed,cosmetics,highest_level AS highestLevel,spins_used AS spinsUsed';
 async function reply(userId:string|null,extra:Record<string,unknown>={}){
  const db=env.DB!;
- const all=await db.prepare('SELECT name,role,color,gender,hair_style AS hairStyle,skin_tone AS skinTone,xp,activity,last_action AS lastAction,joined_at AS joinedAt,bed,cosmetics FROM members ORDER BY joined_at ASC LIMIT 100').all();
- const count=await db.prepare('SELECT COUNT(*) AS total FROM members').first<{total:number}>();
  const now=Date.now();
- const activeThreshold=now-20*60*1000;
- let activeCount=1;
- try{
-  const activeMembers=await db.prepare('SELECT COUNT(*) AS c FROM members WHERE last_action > ? OR joined_at > ?').bind(activeThreshold,activeThreshold).first<{c:number}>();
-  const sessionCount=await db.prepare('SELECT COUNT(DISTINCT user_id) AS c FROM auth_sessions WHERE expires_at > ?').bind(now).first<{c:number}>().catch(()=>null);
-  activeCount=Math.max(1,Math.max(activeMembers?.c??0,sessionCount?.c??0));
- }catch{}
+ if(userId)await db.prepare(MEMBER_HEARTBEAT_SQL).bind(now,userId,now-MEMBER_HEARTBEAT_INTERVAL_MS).run();
+ const all=await db.prepare('SELECT name,role,color,gender,hair_style AS hairStyle,skin_tone AS skinTone,xp,activity,last_action AS lastAction,joined_at AS joinedAt,bed,cosmetics FROM members ORDER BY joined_at ASC LIMIT 100').all();
+ const count=await db.prepare(MEMBER_COUNTS_SQL).bind(now-ACTIVE_MEMBER_WINDOW_MS).first<{total:number;activeCount:number}>();
  const row=userId?await db.prepare(`SELECT ${privateFields} FROM members WHERE id=?`).bind(userId).first<Stored>():null;
  let me=null;
  if(row){const {cosmetics,...rest}=row;const wardrobe=parseCosmetics(cosmetics);const recent=await db.prepare('SELECT id,item_id AS itemKey,created_at AS createdAt FROM spin_history WHERE member_id=? ORDER BY created_at DESC,id DESC LIMIT 10').bind(userId).all();me={...rest,gender:normalizeGender(row.gender),highestLevel:Math.max(row.highestLevel,getMemberLevel(row.xp)),wardrobe,outfit:wardrobe.equipped,title:wardrobe.title,titles:wardrobe.titles,tickets:ticketsFor(row.xp,row.highestLevel,row.spinsUsed),recentSpins:recent.results};}
  const members=all.results.map(({cosmetics,...member})=>{const w=parseCosmetics(cosmetics);return {...member,gender:normalizeGender(member.gender),outfit:w.equipped,title:w.title};});
  const world=await db.prepare('SELECT wood,herbs,defense,comfort,exploration,craft,farm,magic,updated_at AS updatedAt FROM camp_state WHERE id=1').first<WorldProgress>()??EMPTY_WORLD;
  const events=await db.prepare('SELECT id,action,role,amount,created_at AS createdAt FROM world_events ORDER BY created_at DESC,id DESC LIMIT 8').all();
- return Response.json({signedIn:!!userId,me,members,total:count?.total??0,activeCount,world,worldEvents:events.results,...extra},{headers:{'Cache-Control':'no-store'}});
+ return Response.json({signedIn:!!userId,me,members,total:count?.total??0,activeCount:count?.activeCount??0,world,worldEvents:events.results,...extra},{headers:{'Cache-Control':'no-store'}});
 }
 export async function GET(){const user=await getChatGPTUser();return reply(user?.userId??null);}
 const fail=(error:string,status=400)=>Response.json({error},{status});

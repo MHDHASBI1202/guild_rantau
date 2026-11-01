@@ -11,6 +11,7 @@ export const members = sqliteTable('members', {
  wood: integer('wood').notNull().default(0), herbs: integer('herbs').notNull().default(0),
  lastAction: integer('last_action').notNull().default(0), activity: text('activity').notNull().default('Tiba di kamp'),
  joinedAt: integer('joined_at').notNull(), bed: text('bed').notNull(),
+ lastSeen: integer('last_seen').notNull().default(0),
  cosmetics: text('cosmetics').notNull().default('{}'),
  highestLevel: integer('highest_level').notNull().default(1),
  spinsUsed: integer('spins_used').notNull().default(0),
