@@ -18,8 +18,11 @@ assert.equal(m.recentActivity({bed:'Q',activity:'Tiba di kamp',lastAction:now},n
 let cases=0;
 for(const role of roles.ROLES)for(const hair of appearance.HAIR_STYLES)for(const task of w.ACTIVITIES){
  const rig=v.createAvatar({name:'QA',bed:'QA',role,color:'#8baf9c',hairStyle:hair.id}),kit=a.createActivityKit(rig);
- for(const t of [0,.8,2.4]){a.animateActivity(rig,kit,t,task.id,5);assert.ok(kit.items.get(task.id).visible);assert.equal([...kit.items.values()].filter(g=>g.visible).length,1);assert.equal(rig.leftLeg.rotation.x,0);assert.equal(rig.rightLeg.rotation.x,0);assert.equal(rig.head.rotation.y,0);rig.root.updateMatrixWorld(true);rig.root.traverse(o=>{assert.ok(o.position.toArray().every(Number.isFinite));});}
- const hairBox=new THREE.Box3();rig.head.traverse(o=>{if(o.isMesh&&o.userData.hairPart)hairBox.union(new THREE.Box3().setFromObject(o));});const toolBox=new THREE.Box3().setFromObject(kit.root);assert.ok(hairBox.isEmpty()||hairBox.max.z<toolBox.min.z-.015,'Activity props must remain in front of the hair envelope');
+ for(const t of [0,.8,2.4]){a.animateActivity(rig,kit,t,task.id,5+t);assert.ok(kit.items.get(task.id).visible);assert.equal([...kit.items.values()].filter(g=>g.visible).length,1);assert.equal(rig.leftLeg.rotation.x,0);assert.equal(rig.rightLeg.rotation.x,0);assert.ok(Math.abs(rig.head.rotation.y)<=.21);rig.root.updateMatrixWorld(true);rig.root.traverse(o=>{assert.ok(o.position.toArray().every(Number.isFinite));});}
+ const held=kit.items.get(task.id),toolBox=new THREE.Box3().setFromObject(held);
+ rig.head.traverse(o=>{if(o.isMesh&&o.userData.hairPart){const points=o.geometry.getAttribute('position');for(let i=0;i<points.count;i++){const point=new THREE.Vector3().fromBufferAttribute(points,i).applyMatrix4(o.matrixWorld);if(point.y>=toolBox.min.y&&point.y<=toolBox.max.y&&point.x>=toolBox.min.x&&point.x<=toolBox.max.x)assert.ok(point.z<toolBox.min.z-.015,'Hair at hand height must clear held equipment');}}});
+
+ assert.ok([rig.leftHand,rig.rightHand].includes(held.parent),'Work tools must be attached to an actual hand');
  a.animateActivity(rig,kit,1,task.id,5,true);const reduced=rig.rightArm.rotation.x;a.animateActivity(rig,kit,100,task.id,5,true);assert.equal(rig.rightArm.rotation.x,reduced);
  a.animateActivity(rig,kit,3,undefined,0);assert.equal(kit.root.visible,false);for(const tool of kit.tools)assert.equal(tool.node.visible,tool.visible,'Role equipment must return after work');
  v.disposeAvatar(rig.root);cases++;

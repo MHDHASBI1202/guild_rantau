@@ -44,6 +44,7 @@ npx tsc --noEmit
 node scripts/test-cosmetics.mjs
 node scripts/test-character-fitting.mjs
 node scripts/test-activity-animation.mjs
+node scripts/test-equipment-contact.mjs
 ```
 
 Tes API seperti `scripts/test-world-actions.mjs` memerlukan dev server aktif dan hanya digunakan untuk karakter QA pada database lokal. Petunjuk pengujian lebih lengkap tersedia di [catatan implementasi](docs/IMPLEMENTATION.md).
@@ -78,5 +79,7 @@ Pengunggahan source ke GitHub tidak mengubah izin akses website yang sudah terbi
 - Objek kamp tumbuh sampai enam tahap visual per kategori; angka kontribusi tetap bertambah.
 - Kontribusi anggota lain disegarkan setiap 30 detik.
 - Voting cerita resmi berlangsung di Instagram.
+
+Jumlah avatar yang terlihat bukan batas akun yang dapat mendaftar. Kuota hosting, pola penggunaan, dan keterbatasan simulasi dijelaskan di [kapasitas pemain](docs/KAPASITAS.md).
 
 Source snapshot website diunggah oleh **MHDHASBI1202**. Detail pengembangan tersedia di [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
