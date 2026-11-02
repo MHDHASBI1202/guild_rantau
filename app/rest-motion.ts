@@ -1,15 +1,16 @@
 import * as THREE from 'three';
-import {BARRACKS_LAYOUT as B,RUMU_DECK_LAYOUT as D,walkObstacles,type WalkBounds,type WalkPoint} from './guild-building-layout';
+import {BARRACKS_LAYOUT as B,RUMU_DECK_LAYOUT as D,RUMU_TERRACE_LAYOUT as E,walkObstacles,type WalkBounds,type WalkPoint} from './guild-building-layout';
 
 export type Point3=[number,number,number];
-export type BedTarget={id:string;location:'deck'|'barracks'|'tent';pos:Point3;heading:WalkPoint;bedName:string};
+export type BedTarget={id:string;location:'deck'|'barracks'|'tent';pos:Point3;heading:WalkPoint;bedName:string;minLevel?:number};
 // Surface centres in the owning model's coordinates. Original rolls were measured from rumu.glb.
 export const ALL_BED_TARGETS:BedTarget[]=[
  ...Array.from({length:6},(_,i)=>({id:'deck-'+i,location:'deck' as const,pos:[-1.75+(i%3)*1.5,D.upperFloorY+.3275,i<3?-1.98:1.98] as Point3,heading:[-1,0] as WalkPoint,bedName:'Deck Ranjang '+(i+1)})),
  ...Array.from({length:4},(_,i)=>({id:'barak-'+i,location:'barracks' as const,pos:[i%2?-1.55:1.55,.635,i<2?-1.2:1.2] as Point3,heading:[0,-1] as WalkPoint,bedName:'Barak Ranjang '+(i+1)})),
  ...[.40,1.13].map((x,i)=>({id:'tent-'+i,location:'tent' as const,pos:[x,3.24,.27] as Point3,heading:[0,-1] as WalkPoint,bedName:'Ranjang Awal '+(i+1)})),
+ ...E.bedZ.map((z,i)=>({id:'deck-'+(6+i),location:'deck' as const,pos:[E.bedX,D.upperFloorY+.3275,z] as Point3,heading:[-1,0] as WalkPoint,bedName:'Teras Belakang '+(i+1),minLevel:E.minLevel})),
 ];
-export function availableBeds(level:number){return ALL_BED_TARGETS.filter(b=>b.location==='barracks'||level>=2);}
+export function availableBeds(level:number){return ALL_BED_TARGETS.filter(b=>level>=(b.minLevel??(b.location==='barracks'?1:2))).sort((a,b)=>(b.minLevel??0)-(a.minLevel??0));}
 /** Reservations follow stable member IDs, never array indices or modulo arithmetic. */
 export class BedReservations{
  readonly owners=new Map<string,BedTarget>();
@@ -66,7 +67,9 @@ export function routeToBed(start:THREE.Vector3,bed:BedTarget,frame:RestFrame,pro
  const ground=groundRoute([start.x,start.z],[entry.x,entry.z],props);if(!ground)return;
  const path=ground.map(([x,z])=>point([x,.015,z]));
  if(onDeck){path.push(point(frame.stairsBase.toArray()));for(let i=1;i<=STAIR_STEPS;i++)path.push(point([i/STAIR_STEPS,0,0],'stairs'));
-  const side=bed.pos[2]<0?-1:1,z=side*1.43;path.push(point([-2.45,D.upperFloorY,z],'rumu'));
+  const side=bed.pos[2]<0?-1:1,z=side*1.43;
+  if(bed.minLevel===E.minLevel){path.push(point([-2.45,D.upperFloorY,0],'rumu'),point([-2.85,D.upperFloorY,0],'rumu'),point([-2.85,D.upperFloorY,bed.pos[2]],'rumu'),point([bed.pos[0]+.95/frame.scale,D.upperFloorY,bed.pos[2]],'rumu'));return path;}
+  path.push(point([-2.45,D.upperFloorY,z],'rumu'));
   if(bed.location==='tent'){path.push(point([-2.45,D.upperFloorY,1.43],'rumu'),point([bed.pos[0],D.upperFloorY,1.43],'rumu'),point([bed.pos[0],D.floorY,1.05],'rumu'));}
   else path.push(point([bed.pos[0]+.95/frame.scale,D.upperFloorY,z],'rumu'));
  }else{

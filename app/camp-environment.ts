@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import {createGuildBarracks} from './guild-buildings';
+import {createGuildBarracks,createGuildWatchtower} from './guild-buildings';
 import {visualCount,STATIONS,type ImpactKey,type WorldProgress} from './world-progress';
 
-export type CampAnim={flames:THREE.Mesh[];smokePool:THREE.Mesh[];emberLight:THREE.PointLight;pond:THREE.Mesh;barracksLight:THREE.PointLight;barracksLanternMaterial:THREE.MeshStandardMaterial};
+export type CampAnim={flames:THREE.Mesh[];smokePool:THREE.Mesh[];emberLight:THREE.PointLight;pond:THREE.Mesh;barracksLight:THREE.PointLight;barracksLanternMaterial:THREE.MeshStandardMaterial;watchtowerLights:{light:THREE.PointLight;material:THREE.MeshStandardMaterial}[]};
 
 /** Bounded visual growth; exact lifetime contributions remain in the database. */
 export function createCampEnvironment(progress:WorldProgress,night=false):{root:THREE.Group;anim:CampAnim}{
@@ -21,6 +21,7 @@ export function createCampEnvironment(progress:WorldProgress,night=false):{root:
  const magic=part('magic');for(let i=0;i<visualCount(progress.magic);i++){const x=(i%3)*.7,z=Math.floor(i/3)*.7;const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.28,0),new THREE.MeshStandardMaterial({color:'#a9c4df',emissive:'#7a85c7',emissiveIntensity:.7,flatShading:true}));crystal.position.set(x,.6,z);crystal.scale.y=1.8;magic.add(crystal);box(magic,[.45,.16,.45],[x,.1,z],'#8e9a98');}
 
  const barracks=createGuildBarracks(night);root.add(barracks.root);
+ const watchtower=createGuildWatchtower(night);root.add(watchtower.root);
 
  // === Api unggun / Campfire — pusat kamp ===
  const fire=new THREE.Group();fire.name='api-unggun';fire.position.set(-1,0,3.5);root.add(fire);
@@ -50,5 +51,5 @@ export function createCampEnvironment(progress:WorldProgress,night=false):{root:
   s.userData.phaseOffset=i/8;root.add(s);return s;
  });
 
- return {root,anim:{flames,smokePool,emberLight,pond,barracksLight:barracks.light,barracksLanternMaterial:barracks.lanternMaterial}};
+ return {root,anim:{flames,smokePool,emberLight,pond,barracksLight:barracks.light,barracksLanternMaterial:barracks.lanternMaterial,watchtowerLights:watchtower.lights}};
 }

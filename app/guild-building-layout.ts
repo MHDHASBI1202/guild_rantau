@@ -1,10 +1,18 @@
 export const BARRACKS_LAYOUT={x:4.5,z:-11,width:5.2,depth:5.4,eaves:2.83,ridge:3.68,roofWidth:5.7,roofDepth:5.9,yaw:Math.atan2(-4.5,11)} as const;
 export const RUMU_DECK_LAYOUT={floorY:3.08,upperFloorY:3.20,centerX:-.25,length:4.9,wingDepth:1.48,wingZ:1.94} as const;
+export const RUMU_TERRACE_LAYOUT={minLevel:3,centerX:-3.675,length:1.95,depth:5.36,bedX:-3.65,bedZ:[-1.98,-.66,.66,1.98]} as const;
+export const WATCHTOWER_LAYOUT={x:-14.5,z:-12,yaw:Math.atan2(14.5,12),platformY:4.1,roofY:6.65} as const;
 export type WalkPoint=[number,number];
 export type WalkBounds={minX:number;maxX:number;minZ:number;maxZ:number};
 let stairsBounds:WalkBounds|undefined;
 export function setStairWalkBounds(bounds:WalkBounds|undefined){stairsBounds=bounds;loops.clear();}
-export function walkObstacles(){return [barracksWalkBounds(),...(stairsBounds?[stairsBounds]:[])];}
+export function walkObstacles(){return [barracksWalkBounds(),watchtowerWalkBounds(),...(stairsBounds?[stairsBounds]:[])];}
+/** Includes the entrance stairs, roof, lantern posts and character clearance. */
+export function watchtowerWalkBounds(clearance=.45):WalkBounds{
+ const t=WATCHTOWER_LAYOUT,c=Math.cos(t.yaw),s=Math.sin(t.yaw);
+ const corners=[-2.4,2.4].flatMap(x=>[-2.4,3.5].map(z=>[t.x+x*c+z*s,t.z-x*s+z*c]));
+ return {minX:Math.min(...corners.map(p=>p[0]))-clearance,maxX:Math.max(...corners.map(p=>p[0]))+clearance,minZ:Math.min(...corners.map(p=>p[1]))-clearance,maxZ:Math.max(...corners.map(p=>p[1]))+clearance};
+}
 /** Includes roof projection and a full character radius, not just the building origin. */
 export function barracksWalkBounds(clearance=.45):WalkBounds{
  const b=BARRACKS_LAYOUT,c=Math.abs(Math.cos(b.yaw)),s=Math.abs(Math.sin(b.yaw));

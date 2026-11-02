@@ -112,7 +112,7 @@ export const RUMU_LEVEL_MILESTONES: RumuMilestone[] = [
   minMembers: 15,
   title: 'Rumah Berjalan Perantau',
   scaleMultiplier: 1.16,
-  description: 'Punggung batu luas nan kokoh, mampu menopang pos ronda dan lentera jalan para perantau.',
+  description: 'Teras belakang Rumu terbuka dengan empat ranjang tambahan. Menara hasil pilihan guild kini berdiri, lengkap dengan lentera untuk menerangi tepi kamp.',
   quote: 'Bebannya tidak terasa berat kalau dipikul ramai-ramai.',
  },
  {

@@ -11,19 +11,19 @@ import * as THREE from 'three';
 import {createAvatar,disposeAvatar} from './avatar-model';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
-import {createRumuDeck,createDeckStairs,openOriginalCampWalkway} from './guild-buildings';
+import {createRumuDeck,setRumuDeckLevel,createDeckStairs,openOriginalCampWalkway} from './guild-buildings';
 import {getRumuMilestone} from './milestones';
-import {setStairWalkBounds,avoidBarracks,type WalkBounds} from './guild-building-layout';
+import {setStairWalkBounds,avoidBarracks,walkObstacles,WATCHTOWER_LAYOUT as T,type WalkBounds} from './guild-building-layout';
 import {animateRest,restoreRestGear} from './rest-animation';
 import {BedReservations,availableBeds,createRestFrame,updateRestFrame,stairBounds,startRest,advanceRest,type RestState,type RestFrame} from './rest-motion';
 
 export const RUMU_ARU_LORE = [
  {speaker:'Aru',role:'Pengurus Guild',text:'Barak sudah berdiri! Anggota guild punya tempat berlindung yang layak sekarang.'},
- {speaker:'Aru',role:'Pengurus Guild',text:'Anggotanya baru sedikit, deck dan barak kita kini punya tambahan ranjang. Terima kasih sudah ikut membangun!'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Rumu terus tumbuh. Mulai level 3, teras belakang terbuka dengan empat ranjang tambahan!'},
  {speaker:'Rumu',role:'Monster Batu Lv. 1',text:'Pelan-pelan saja. Yang penting kita jalan bersama.'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Di punggung Rumu kita aman. Hutan Bisik boleh berkabut, tapi rumah kita tetap hangat.'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Kayu dan daun obat yang kamu kumpulkan sangat berarti buat masa depan kamp kita!'},
- {speaker:'Aru',role:'Pengurus Guild',text:'Barak sudah jadi berkat pilihan kalian. Arah pembangunan berikutnya kita tentukan bareng.'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Menara menang pilihan kalian. Lenteranya ikut kita pasang: berjaga dan menerangi jalan sama-sama penting!'},
  {speaker:'Rumu',role:'Monster Batu Lv. 1',text:'*Krrr-krrr...* (Rumu mendengkur pelan, menikmati segarnya angin Hutan Bisik).'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Rumu tumbuh bersama anggota guild. Badannya besar, hatinya jauh lebih besar!'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Kalau kamu lelah berkelana hari ini, jangan lupa istirahat di ranjang kamp ya.'},
@@ -36,7 +36,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
  const nightRef=useRef(night);nightRef.current=night;
  const syncRumu=useRef<(()=>void)|null>(null);
  useEffect(()=>{syncRumu.current?.();},[totalMembers]);
- const follow=useRef<string|null>(null);
+ const follow=useRef<string|null>(null);const towerFocus=useRef(false);
  const [rows,setRows]=useState<{bed:string;name:string;title:string;phase:string}[]>([]);
  const [loreIndex,setLoreIndex]=useState(0);
  const [loreVisible,setLoreVisible]=useState(true);
@@ -91,6 +91,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    const angle=random()*Math.PI*2,r=13.5+random()*19.5;
    const x=Math.cos(angle)*r,z=Math.sin(angle)*r;
    if(Math.hypot(x,z)<11.5)continue;
+   if(walkObstacles().some(b=>x>b.minX-1.5&&x<b.maxX+1.5&&z>b.minZ-1.5&&z<b.maxZ+1.5))continue;
    const h=2.2+random()*3.8;const tree=new THREE.Group();
    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.15,.25,h*.45,5),mat('#7f7157'));trunk.position.y=h*.2;tree.add(trunk);
    if(i%3===0){
@@ -209,7 +210,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
 
    const rumuDeck=createRumuDeck();rumu.add(rumuDeck);
    const center=box.getCenter(new THREE.Vector3()),baseScale=12/Math.max(size.x,size.z);
-   syncRumu.current=()=>{if(!rumu||!rumuParts)return;const milestone=getRumuMilestone(memberCountRef.current);const scale=baseScale*milestone.current.scaleMultiplier;rumu.scale.setScalar(scale);rumu.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale);rumuParts.baseY=rumu.position.y;rumuDeck.visible=milestone.current.level>=2;rumu.updateMatrixWorld(true);restFrame=createRestFrame(rumu.matrixWorld);stairs.root.visible=rumuDeck.visible;setStairWalkBounds(stairs.root.visible?stairBounds(restFrame):undefined);stairs.update(restFrame);};
+   syncRumu.current=()=>{if(!rumu||!rumuParts)return;const milestone=getRumuMilestone(memberCountRef.current);const scale=baseScale*milestone.current.scaleMultiplier;rumu.scale.setScalar(scale);rumu.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale);rumuParts.baseY=rumu.position.y;setRumuDeckLevel(rumuDeck,milestone.current.level);rumu.updateMatrixWorld(true);restFrame=createRestFrame(rumu.matrixWorld);stairs.root.visible=rumuDeck.visible;setStairWalkBounds(stairs.root.visible?stairBounds(restFrame):undefined);stairs.update(restFrame);};
    syncRumu.current();
    for(const actor of citizens.current.children){const m=actor.userData.motion as MotionState;const [x,z]=ringPoint(m.angle,m.rx,m.rz);actor.position.set(x,.015,z);}
 
@@ -489,7 +490,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    }
 
    if(follow.current){const actor=actors.find(o=>o.userData.bed===follow.current);if(actor){const direction=new THREE.Vector3(actor.position.x,0,actor.position.z).normalize(),target=actor.position.clone().add(new THREE.Vector3(0,.9,0)),cameraPoint=actor.position.clone().addScaledVector(direction,12);cameraPoint.y=8.2;const blend=reduced?1:1-Math.exp(-Math.min(dt,.1)*3);controls.target.lerp(target,blend);camera.position.lerp(cameraPoint,blend);}}
-   const sight=new THREE.Ray(camera.position,controls.target.clone().sub(camera.position).normalize()),sightLength=camera.position.distanceTo(controls.target);for(const tree of scene.children)if(tree.userData.forest){const hit=follow.current?sight.intersectBox(tree.userData.occlusionBox,new THREE.Vector3()):null;tree.visible=!hit||camera.position.distanceTo(hit)>sightLength-.4;}
+   const sight=new THREE.Ray(camera.position,controls.target.clone().sub(camera.position).normalize()),sightLength=camera.position.distanceTo(controls.target);for(const tree of scene.children)if(tree.userData.forest){const hit=(follow.current||towerFocus.current)?sight.intersectBox(tree.userData.occlusionBox,new THREE.Vector3()):null;tree.visible=!hit||camera.position.distanceTo(hit)>sightLength-.4;}
    if(pulse.current){const age=(performance.now()-pulse.current.started)/1600;const p=pulse.current.mesh;p.visible=age<1;p.scale.setScalar(.7+Math.min(1,age)*1.5);(p.material as THREE.MeshBasicMaterial).opacity=Math.max(0,1-age);}
    fireflies.rotation.y=reduced?0:t*.016;controls.update();renderer.render(scene,camera);id=requestAnimationFrame(animate);};animate();
   return()=>{dead=true;cancelAnimationFrame(id);observer.disconnect();controls.dispose();disposeAvatar(scene);renderer.dispose();el.replaceChildren();state.current=null;campAnimRef.current=null;rumuParts=null;syncRumu.current=null;setStairWalkBounds(undefined);};
@@ -499,10 +500,10 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
   s.scene.fog=new THREE.FogExp2(night?'#344858':'#dce3ce',.009);
   s.hemi.intensity=night?1.2:2.4;s.sun.intensity=night?.6:3.4;s.sun.color.set(night?'#a4b9e0':'#fff0cb');
   (s.stars.material as THREE.PointsMaterial).opacity=night?.82:0;
-  const camp=campAnimRef.current;if(camp){camp.barracksLight.intensity=night?2.3:0;camp.barracksLanternMaterial.emissiveIntensity=night?.9:.08;}
+  const camp=campAnimRef.current;if(camp){camp.barracksLight.intensity=night?2.3:0;camp.barracksLanternMaterial.emissiveIntensity=night?.9:.08;for(const {light,material} of camp.watchtowerLights){light.intensity=night?(light.distance>10?12:3):0;material.emissiveIntensity=night?1.8:.15;}}
  },[night]);
 
- useEffect(()=>{const s=state.current;if(!s)return;s.controls.autoRotate=focus==='world'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;follow.current=focus.startsWith('activity:')?focus.split(':')[1]:null;if(focus.startsWith('activity:')){/* Smooth following is applied by the render loop. */}else if(focus==='camp'){s.camera.position.set(12,15,16);s.controls.target.set(0,4,0);}else{s.camera.position.set(24,18,30);s.controls.target.set(0,3.5,0);}s.controls.update();},[focus]);
+ useEffect(()=>{const s=state.current;if(!s)return;towerFocus.current=focus==='tower';s.controls.autoRotate=focus==='world'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;follow.current=focus.startsWith('activity:')?focus.split(':')[1]:null;if(focus.startsWith('activity:')){/* Smooth following is applied by the render loop. */}else if(focus==='tower'){s.camera.position.set(T.x-11,11,T.z+11);s.controls.target.set(T.x,3.5,T.z);}else if(focus==='camp'){s.camera.position.set(12,15,16);s.controls.target.set(0,4,0);}else{s.camera.position.set(24,18,30);s.controls.target.set(0,3.5,0);}s.controls.update();},[focus]);
 
  useEffect(()=>{const group=citizens.current,visible=residents.slice(0,12),beds=new Set(visible.map(r=>r.bed));for(const child of [...group.children])if(!beds.has(child.userData.bed)){disposeAvatar(child);group.remove(child);}
   visible.forEach((r,i)=>{const signature=JSON.stringify([r.role,r.color,r.gender,r.hairStyle,r.skinTone,r.outfit]);let existing=group.children.find(o=>o.userData.bed===r.bed);
@@ -537,6 +538,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    
    {/* Gelembung Suara / Lore & Penyemangat Aru & Rumu */}
    <div 
+    style={focus==='tower'?{display:'none'}:undefined}
     className={`aru-lore-bubble ${loreVisible?'visible':'fading'}`}
     onClick={nextLore}
     role="button"
@@ -553,7 +555,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
     <p className="aru-lore-text">"{RUMU_ARU_LORE[loreIndex].text}"</p>
    </div>
 
-   <aside className="world-activity" aria-label="Aktivitas anggota di dunia">
+   <aside className="world-activity" style={focus==='tower'?{display:'none'}:undefined} aria-label="Aktivitas anggota di dunia">
     <b>{rows.length?`${rows.length} petualang terlihat`:'Kamp berjalan tenang'}</b>
     {rows.map(r=><button key={r.bed} onClick={()=>onFollow(r.bed)} aria-label={`Ikuti ${r.name}: ${r.title}`}><span>{r.name}</span><small>{r.phase} · {r.title}</small></button>)}
     <small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota beraktivitas & berjalan santai di kamp.'} {availableBeds(getRumuMilestone(totalMembers).current.level).length} kasur bersama. Maks. 12 anggota tampil. Bukan status online.</small>
