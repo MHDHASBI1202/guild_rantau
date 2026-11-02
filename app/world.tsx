@@ -11,11 +11,12 @@ import * as THREE from 'three';
 import {createAvatar,animateAvatar,disposeAvatar} from './avatar-model';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {createRumuDeck} from './guild-buildings';
 import {getRumuMilestone} from './milestones';
 
 export const RUMU_ARU_LORE = [
  {speaker:'Aru',role:'Pengurus Guild',text:'Barak sudah berdiri! Anggota guild punya tempat berlindung yang layak sekarang.'},
- {speaker:'Aru',role:'Pengurus Guild',text:'Anggotanya baru sedikit, ranjangnya sudah disiapkan dua. Optimis dulu!'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Anggotanya baru sedikit, deck dan barak kita kini punya tambahan ranjang. Terima kasih sudah ikut membangun!'},
  {speaker:'Rumu',role:'Monster Batu Lv. 1',text:'Pelan-pelan saja. Yang penting kita jalan bersama.'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Di punggung Rumu kita aman. Hutan Bisik boleh berkabut, tapi rumah kita tetap hangat.'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Kayu dan daun obat yang kamu kumpulkan sangat berarti buat masa depan kamp kita!'},
@@ -28,6 +29,9 @@ export const RUMU_ARU_LORE = [
 ];
 
 export default function World({night,focus,onSelect,onFollow,residents,world=EMPTY_WORLD,totalMembers=1}:{night:boolean;focus:string;onSelect:(v:string)=>void;onFollow:(bed:string)=>void;world?:WorldProgress;residents:{name:string;role:string;color:string;activity:string;lastAction?:number;bed:string;outfit?:Loadout;gender?:Gender|null;hairStyle?:HairStyle;skinTone?:SkinTone}[];totalMembers?:number}){
+ const memberCountRef=useRef(totalMembers);memberCountRef.current=totalMembers;
+ const syncRumu=useRef<(()=>void)|null>(null);
+ useEffect(()=>{syncRumu.current?.();},[totalMembers]);
  const follow=useRef<string|null>(null);
  const [rows,setRows]=useState<{bed:string;name:string;title:string;phase:string}[]>([]);
  const [loreIndex,setLoreIndex]=useState(0);
@@ -141,7 +145,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    rumu=g.scene;
    const box=new THREE.Box3().setFromObject(rumu);
    const size=box.getSize(new THREE.Vector3());
-   const rumuMilestone=getRumuMilestone(totalMembers);
+   const rumuMilestone=getRumuMilestone(memberCountRef.current);
    const scale=(12/Math.max(size.x,size.z))*rumuMilestone.current.scaleMultiplier;
    rumu.scale.setScalar(scale);
    const box2=new THREE.Box3().setFromObject(rumu);
@@ -197,31 +201,10 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
     lantern
    };
 
-    // === Papan kayu + ranjang di punggung Rumu (Level 2: 11+ anggota) ===
-    const deckMat2=new THREE.MeshStandardMaterial({color:'#9a7a52',flatShading:true,roughness:.9});
-    const railMat2=new THREE.MeshStandardMaterial({color:'#7c6038',flatShading:true,roughness:.95});
-    const mk2=(geo2:THREE.BufferGeometry,m2:THREE.Material,px:number,py:number,pz:number,par:THREE.Object3D)=>{const me=new THREE.Mesh(geo2,m2);me.position.set(px,py,pz);me.castShadow=true;me.receiveShadow=true;par.add(me);return me;};
-    const rumuDeck=new THREE.Group();rumuDeck.name='rumu-deck';
-    mk2(new THREE.BoxGeometry(.58,.025,.42),deckMat2,0,.01,-.04,rumuDeck);
-    mk2(new THREE.BoxGeometry(.30,.020,.22),deckMat2,-.40,.008,-.05,rumuDeck);
-    mk2(new THREE.BoxGeometry(.28,.020,.20),deckMat2,.39,.008,-.04,rumuDeck);
-    mk2(new THREE.BoxGeometry(.22,.016,.16),deckMat2,0,.005,.22,rumuDeck);
-    for(const [rpx,rpz] of [[-0.27,-.19],[0.27,-.19],[-0.27,.19],[0.27,.19]] as [number,number][]){mk2(new THREE.BoxGeometry(.008,.06,.008),railMat2,rpx,.04,rpz,rumuDeck);}
-    mk2(new THREE.BoxGeometry(.55,.005,.006),railMat2,0,.065,-.19,rumuDeck);
-    mk2(new THREE.BoxGeometry(.006,.005,.40),railMat2,-.27,.065,.0,rumuDeck);
-    mk2(new THREE.BoxGeometry(.006,.005,.40),railMat2,.27,.065,.0,rumuDeck);
-    const bfMat2=new THREE.MeshStandardMaterial({color:'#8c7454',flatShading:true,roughness:.9});
-    const bmMat2=new THREE.MeshStandardMaterial({color:'#c8a87e',flatShading:true,roughness:.85});
-    const bCols2=['#7a9e8a','#b47a5a','#8a8fb4','#a07a6a','#7a9090','#c4a07a'];
-    const bPos2:[number,number,number][]=[[-0.16,.012,-.10],[0,.012,-.10],[.16,.012,-.10],[-0.16,.012,.08],[0,.012,.08],[.16,.012,.08]];
-    bPos2.forEach(([bx2,by2,bz2],bi2)=>{
-     mk2(new THREE.BoxGeometry(.085,.010,.050),bfMat2,bx2,by2,bz2,rumuDeck);
-     mk2(new THREE.BoxGeometry(.080,.006,.044),bmMat2,bx2,by2+.008,bz2,rumuDeck);
-     const blk2=new THREE.Mesh(new THREE.BoxGeometry(.078,.004,.028),new THREE.MeshStandardMaterial({color:bCols2[bi2%6],flatShading:true,roughness:.85}));blk2.position.set(bx2,by2+.013,bz2+.008);rumuDeck.add(blk2);
-     mk2(new THREE.BoxGeometry(.028,.006,.014),bfMat2,bx2,by2+.014,bz2-.016,rumuDeck);
-    });
-    rumuDeck.position.set(0,.72,-.04);
-    rumu.add(rumuDeck);
+   const rumuDeck=createRumuDeck();rumu.add(rumuDeck);
+   const center=box.getCenter(new THREE.Vector3()),baseScale=12/Math.max(size.x,size.z);
+   syncRumu.current=()=>{if(!rumu||!rumuParts)return;const milestone=getRumuMilestone(memberCountRef.current);const scale=baseScale*milestone.current.scaleMultiplier;rumu.scale.setScalar(scale);rumu.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale);rumuParts.baseY=rumu.position.y;rumuDeck.visible=milestone.current.level>=2;};
+   syncRumu.current();
 
   },undefined,()=>{el.dataset.error='true';});
 
@@ -489,13 +472,14 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    const sight=new THREE.Ray(camera.position,controls.target.clone().sub(camera.position).normalize()),sightLength=camera.position.distanceTo(controls.target);for(const tree of scene.children)if(tree.userData.forest){const hit=follow.current?sight.intersectBox(tree.userData.occlusionBox,new THREE.Vector3()):null;tree.visible=!hit||camera.position.distanceTo(hit)>sightLength-.4;}
    if(pulse.current){const age=(performance.now()-pulse.current.started)/1600;const p=pulse.current.mesh;p.visible=age<1;p.scale.setScalar(.7+Math.min(1,age)*1.5);(p.material as THREE.MeshBasicMaterial).opacity=Math.max(0,1-age);}
    fireflies.rotation.y=reduced?0:t*.016;controls.update();renderer.render(scene,camera);id=requestAnimationFrame(animate);};animate();
-  return()=>{dead=true;cancelAnimationFrame(id);observer.disconnect();controls.dispose();disposeAvatar(scene);renderer.dispose();el.replaceChildren();state.current=null;campAnimRef.current=null;rumuParts=null;};
+  return()=>{dead=true;cancelAnimationFrame(id);observer.disconnect();controls.dispose();disposeAvatar(scene);renderer.dispose();el.replaceChildren();state.current=null;campAnimRef.current=null;rumuParts=null;syncRumu.current=null;};
  },[]);
 
  useEffect(()=>{const s=state.current;if(!s)return;
   s.scene.fog=new THREE.FogExp2(night?'#344858':'#dce3ce',.009);
   s.hemi.intensity=night?1.2:2.4;s.sun.intensity=night?.6:3.4;s.sun.color.set(night?'#a4b9e0':'#fff0cb');
   (s.stars.material as THREE.PointsMaterial).opacity=night?.82:0;
+  const camp=campAnimRef.current;if(camp){camp.barracksLight.intensity=night?2.3:0;camp.barracksLanternMaterial.emissiveIntensity=night?.9:.08;}
  },[night]);
 
  useEffect(()=>{const s=state.current;if(!s)return;s.controls.autoRotate=focus==='world'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;follow.current=focus.startsWith('activity:')?focus.split(':')[1]:null;if(focus.startsWith('activity:')){/* Smooth following is applied by the render loop. */}else if(focus==='camp'){s.camera.position.set(12,15,16);s.controls.target.set(0,4,0);}else{s.camera.position.set(24,18,30);s.controls.target.set(0,3.5,0);}s.controls.update();},[focus]);
@@ -520,7 +504,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
  useEffect(()=>{const g=environment.current;
   while(g.children.length){const child=g.children[0];disposeAvatar(child);g.remove(child);}
   campAnimRef.current=null;
-  const {root:camp,anim}=createCampEnvironment(world);g.add(camp);campAnimRef.current=anim;pulse.current=null;
+  const {root:camp,anim}=createCampEnvironment(world,night);g.add(camp);campAnimRef.current=anim;pulse.current=null;
   const changed=IMPACTS.find(i=>world[i.key]>previousWorld.current[i.key]);
   if(changed&&previousWorld.current.updatedAt&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const target=camp.getObjectByName('camp-'+changed.key);if(target){const ring=new THREE.Mesh(new THREE.RingGeometry(.65,.75,24),new THREE.MeshBasicMaterial({color:changed.color,transparent:true,opacity:1,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.copy(target.position);ring.position.y=.04;g.add(ring);pulse.current={mesh:ring,started:performance.now()};}}
   previousWorld.current=world;},[world]);

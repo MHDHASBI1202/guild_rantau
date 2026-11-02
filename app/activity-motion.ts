@@ -1,3 +1,4 @@
+import {safeRingPoint,safeRingAngle,avoidBarracks} from './guild-building-layout';
 import {ACTIVITIES,STATIONS,type ImpactKey} from './world-progress';
 
 export const ACTIVITY_WINDOW_MS = 55000;
@@ -46,12 +47,8 @@ export function bedHash(bed: string): number {
   return Math.abs(h);
 }
 
-export const ringPoint = (angle: number, rx = 9.8, rz = 8.4): Point => [
-  Math.cos(angle) * rx,
-  Math.sin(angle) * rz,
-];
-export const ringAngle = (p: Point, rx = 9.8, rz = 8.4) =>
-  Math.atan2(p[1] / rz, p[0] / rx);
+export const ringPoint = (angle:number,rx=9.8,rz=8.4):Point=>safeRingPoint(angle,rx,rz);
+export const ringAngle = (p:Point,rx=9.8,rz=8.4)=>safeRingAngle(p,rx,rz);
 
 export function dockPoint(key: ImpactKey, slot: number): Point {
   const s = STATIONS[key],
@@ -70,7 +67,7 @@ export function routeToDock(start: Point, key: ImpactKey, slot = 0, rx = 9.8, rz
   const path: Point[] = [ringPoint(a, rx, rz)];
   for (let i = 1; i <= steps; i++) path.push(ringPoint(a + (delta * i) / steps, rx, rz));
   path.push(dock);
-  return path;
+  return avoidBarracks([start,...path]).slice(1);
 }
 
 export type MotionPhase = 'stroll' | 'travel' | 'work' | 'return' | 'queue' | 'idle';
@@ -141,7 +138,7 @@ export function advanceMotion(
   } else if ((!active || slot === undefined) && ['travel', 'work'].includes(m.phase)) {
     // Finished user task: return to ring path
     m.angle = ringAngle(position, m.rx, m.rz);
-    m.path = [ringPoint(m.angle, m.rx, m.rz)];
+    m.path = avoidBarracks([position,ringPoint(m.angle, m.rx, m.rz)]).slice(1);
     m.phase = 'return';
     m.action = undefined;
     m.slot = -1;

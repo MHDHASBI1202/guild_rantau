@@ -1,10 +1,11 @@
 import * as THREE from 'three';
+import {createGuildBarracks} from './guild-buildings';
 import {visualCount,STATIONS,type ImpactKey,type WorldProgress} from './world-progress';
 
-export type CampAnim={flames:THREE.Mesh[];smokePool:THREE.Mesh[];emberLight:THREE.PointLight;pond:THREE.Mesh};
+export type CampAnim={flames:THREE.Mesh[];smokePool:THREE.Mesh[];emberLight:THREE.PointLight;pond:THREE.Mesh;barracksLight:THREE.PointLight;barracksLanternMaterial:THREE.MeshStandardMaterial};
 
 /** Bounded visual growth; exact lifetime contributions remain in the database. */
-export function createCampEnvironment(progress:WorldProgress):{root:THREE.Group;anim:CampAnim}{
+export function createCampEnvironment(progress:WorldProgress,night=false):{root:THREE.Group;anim:CampAnim}{
  const root=new THREE.Group();root.name='Dampak gotong royong';
  const materials=new Map<string,THREE.MeshStandardMaterial>();
  const mat=(c:string)=>{if(!materials.has(c))materials.set(c,new THREE.MeshStandardMaterial({color:c,flatShading:true,roughness:.9}));return materials.get(c)!;};
@@ -19,29 +20,7 @@ export function createCampEnvironment(progress:WorldProgress):{root:THREE.Group;
  const farm=part('farm');for(let i=0;i<visualCount(progress.farm);i++){const x=(i%3)*.7,z=Math.floor(i/3)*.7;box(farm,[.6,.10,.6],[x,.02,z],'#907b53');box(farm,[.04,.36,.04],[x,.22,z],'#75965e');for(const side of [-1,1]){const leaf=new THREE.Mesh(new THREE.OctahedronGeometry(.22,0),mat('#9cbf78'));leaf.scale.set(1,.35,.5);leaf.rotation.z=side*.5;leaf.position.set(x+side*.12,.32,z);farm.add(leaf);}}
  const magic=part('magic');for(let i=0;i<visualCount(progress.magic);i++){const x=(i%3)*.7,z=Math.floor(i/3)*.7;const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.28,0),new THREE.MeshStandardMaterial({color:'#a9c4df',emissive:'#7a85c7',emissiveIntensity:.7,flatShading:true}));crystal.position.set(x,.6,z);crystal.scale.y=1.8;magic.add(crystal);box(magic,[.45,.16,.45],[x,.1,z],'#8e9a98');}
 
- // === BARAK — Bangunan Hasil Voting Guild (Level 2) ===
- const barak=new THREE.Group();barak.name='barak';barak.position.set(4.5,0,-11.0);barak.rotation.y=Math.PI;root.add(barak);
- const mat2=(c:string)=>mat(c);
- box(barak,[5.2,.18,3.8],[0,.09,0],'#9a7a52');
- box(barak,[5.2,2.2,.14],[0,1.19,-1.82],'#8a6b48');
- box(barak,[.14,2.2,3.8],[-2.53,1.19,0],'#8a6b48');
- box(barak,[.14,2.2,1.5],[2.53,1.19,-1.14],'#8a6b48');
- box(barak,[.14,2.2,1.5],[2.53,1.19,1.14],'#8a6b48');
- box(barak,[5.2,.12,.12],[0,3.08,0],'#7c6038');
- const roofL=new THREE.Mesh(new THREE.BoxGeometry(5.4,.12,2.4),mat2('#b8956a'));roofL.position.set(0,2.7,-1.0);roofL.rotation.z=.02;roofL.rotation.x=.42;roofL.castShadow=true;barak.add(roofL);
- const roofR=new THREE.Mesh(new THREE.BoxGeometry(5.4,.12,2.4),mat2('#b8956a'));roofR.position.set(0,2.7,1.0);roofR.rotation.z=-.02;roofR.rotation.x=-.42;roofR.castShadow=true;barak.add(roofR);
- box(barak,[2.2,.08,.7],[-.2,2.55,-1.78],'#c9a66b');
- const bedColor='#8c7454',matColor='#c4b08c';
- for(let row=0;row<2;row++)for(let col=0;col<2;col++){
-  const bx=col===0?-1.5:1.5,bz=row===0?-1.0:0.8;
-  box(barak,[1.1,.12,.7],[bx,.33,bz],bedColor);
-  box(barak,[1.0,.08,.6],[bx,.45,bz],matColor);
-  box(barak,[1.0,.22,.22],[bx,.45,bz-.26],bedColor);
-  for(const fx of [-.44,.44])for(const fz of [-.28,.28])box(barak,[.07,.33,.07],[bx+fx,.255,bz+fz],'#7a6245');
- }
- const barakLantern=new THREE.Mesh(new THREE.OctahedronGeometry(.18,0),new THREE.MeshStandardMaterial({color:'#f5d788',emissive:'#e8a835',emissiveIntensity:.9,flatShading:true}));
- barakLantern.position.set(0,2.5,0);barak.add(barakLantern);
- const barakLight=new THREE.PointLight('#ffb833',1.2,7,2);barakLight.position.set(4.5,3.5,-11.0);root.add(barakLight);
+ const barracks=createGuildBarracks(night);root.add(barracks.root);
 
  // === Api unggun / Campfire — pusat kamp ===
  const fire=new THREE.Group();fire.name='api-unggun';fire.position.set(-1,0,3.5);root.add(fire);
@@ -71,5 +50,5 @@ export function createCampEnvironment(progress:WorldProgress):{root:THREE.Group;
   s.userData.phaseOffset=i/8;root.add(s);return s;
  });
 
- return {root,anim:{flames,smokePool,emberLight,pond}};
+ return {root,anim:{flames,smokePool,emberLight,pond,barracksLight:barracks.light,barracksLanternMaterial:barracks.lanternMaterial}};
 }
