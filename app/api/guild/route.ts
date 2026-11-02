@@ -4,18 +4,19 @@ import {validHair,validSkin,DEFAULT_HAIR,DEFAULT_SKIN} from '../../appearance-op
 import {GENDERS,normalizeGender,type Gender} from '../../character-options';
 import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '../../chatgpt-auth';
-import {SLOTS,findItem,itemKey,parseCosmetics,drawItem,ticketsFor,type Slot} from '../../cosmetics';
+import {SLOTS,findItem,itemKey,parseCosmetics,starterWardrobe,drawItem,ticketsFor,type Slot} from '../../cosmetics';
 import {getMemberLevel} from '../../milestones';
 import {BARTER_CATALOG} from '../../barter-options';
 import {ACTIVE_MEMBER_WINDOW_MS,MEMBER_HEARTBEAT_INTERVAL_MS,MEMBER_HEARTBEAT_SQL,MEMBER_COUNTS_SQL} from '../../member-presence';
 const colors=['#e99552','#8baf9c','#8f9fc8','#c68cab'];
 type Stored={name:string;role:string;color:string;gender:string;hairStyle:string;skinTone:string;xp:number;wood:number;herbs:number;lastAction:number;activity:string;joinedAt:number;bed:string;cosmetics:string;highestLevel:number;spinsUsed:number};
+type PublicStored=Omit<Stored,'wood'|'herbs'|'highestLevel'|'spinsUsed'>;
 const privateFields='name,role,color,gender,hair_style AS hairStyle,skin_tone AS skinTone,xp,wood,herbs,last_action AS lastAction,activity,joined_at AS joinedAt,bed,cosmetics,highest_level AS highestLevel,spins_used AS spinsUsed';
 async function reply(userId:string|null,extra:Record<string,unknown>={}){
  const db=env.DB!;
  const now=Date.now();
  if(userId)await db.prepare(MEMBER_HEARTBEAT_SQL).bind(now,userId,now-MEMBER_HEARTBEAT_INTERVAL_MS).run();
- const all=await db.prepare('SELECT name,role,color,gender,hair_style AS hairStyle,skin_tone AS skinTone,xp,activity,last_action AS lastAction,joined_at AS joinedAt,bed,cosmetics FROM members ORDER BY joined_at ASC LIMIT 100').all();
+ const all=await db.prepare('SELECT name,role,color,gender,hair_style AS hairStyle,skin_tone AS skinTone,xp,activity,last_action AS lastAction,joined_at AS joinedAt,bed,cosmetics FROM members ORDER BY joined_at ASC LIMIT 100').all<PublicStored>();
  const count=await db.prepare(MEMBER_COUNTS_SQL).bind(now-ACTIVE_MEMBER_WINDOW_MS).first<{total:number;activeCount:number}>();
  const row=userId?await db.prepare(`SELECT ${privateFields} FROM members WHERE id=?`).bind(userId).first<Stored>():null;
  let me=null;
@@ -25,9 +26,16 @@ async function reply(userId:string|null,extra:Record<string,unknown>={}){
  const events=await db.prepare('SELECT id,action,role,amount,created_at AS createdAt FROM world_events ORDER BY created_at DESC,id DESC LIMIT 8').all();
  return Response.json({signedIn:!!userId,me,members,total:count?.total??0,activeCount:count?.activeCount??0,world,worldEvents:events.results,...extra},{headers:{'Cache-Control':'no-store'}});
 }
-export async function GET(){const user=await getChatGPTUser();return reply(user?.userId??null);}
-const fail=(error:string,status=400)=>Response.json({error},{status});
-export async function POST(request:Request){
+const fail=(error:string,status=400)=>Response.json({error},{status,headers:{'Cache-Control':'no-store'}});
+async function guardedResponse(run:()=>Promise<Response>){
+ try{return await run();}catch(error){
+  console.error('Guild API request failed',error);
+  return fail('Server kamp sedang bermasalah. Silakan coba lagi sebentar.',500);
+ }
+}
+export async function GET(){return guardedResponse(async()=>{const user=await getChatGPTUser();return reply(user?.userId??null);});}
+export async function POST(request:Request){return guardedResponse(()=>handlePost(request));}
+async function handlePost(request:Request){
  if(request.headers.get('origin')!==new URL(request.url).origin)return fail('Asal permintaan tidak valid.',403);
  const user=await getChatGPTUser();if(!user)return fail('Masuk dulu untuk menyimpan karaktermu.',401);
  const db=env.DB!;let body:Record<string,string>;

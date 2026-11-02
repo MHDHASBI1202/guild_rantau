@@ -1,5 +1,6 @@
 'use client';
 import {useState,type FormEvent} from 'react';
+import {readGuildResponse} from './guild-response';
 import dynamic from 'next/dynamic';
 import {ArrowRight,Check,LockKeyhole,Shirt,Crown,Footprints,Gem,Backpack,Tent} from 'lucide-react';
 import GenderPicker from './gender-picker';
@@ -25,7 +26,7 @@ export default function CharacterCreation(){
   setBusy(true);setError('');
   try{
    const r=await fetch('/api/guild',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'join',name:name.trim(),gender,skinTone:skin,hairStyle:hair,role,subrole,color,outfit:JSON.stringify(outfit)})});
-   const data=await r.json() as {error?:string;me?:unknown};
+   const data=await readGuildResponse<{error?:string;me?:unknown}>(r);
    if(!r.ok){if(r.status===409&&data.error==='Kamu sudah punya karakter.'){location.assign('/');return;}throw Error(data.error??'Karakter belum berhasil disimpan.');}
    location.assign('/');
   }catch(e){setError(e instanceof Error?e.message:'Koneksi terputus. Coba lagi; pilihanmu tetap ada.');setBusy(false);}
