@@ -1,57 +1,10 @@
-export const BARRACKS_LAYOUT={x:4.5,z:-11,width:5.2,depth:3.8,eaves:2.83,ridge:3.68,roofWidth:5.7,roofDepth:4.3,yaw:Math.atan2(-4.5,11)} as const;
-export const RUMU_DECK_LAYOUT={floorY:3.08,upperFloorY:3.20,centerX:-.25,length:4.9,wingDepth:1.16,wingZ:1.82} as const;
-export const LADDER_LAYOUT={base:[-3.75,-0.60] as WalkPoint,top:[-2.60,-0.60] as WalkPoint,deckFloorY:3.20,groundY:0.015} as const;
-
-export type BedTarget={id:string;location:'deck'|'barracks'|'tent';pos:[number,number,number];yaw:number;bedName:string};
-export const ALL_BED_TARGETS:BedTarget[]=[
- // 6 Ranjang di Punggung Rumu (Deck Rumu)
- {id:'deck-0',location:'deck',pos:[-1.75,3.20,-1.82],yaw:0,bedName:'Deck Ranjang 1'},
- {id:'deck-1',location:'deck',pos:[-0.25,3.20,-1.82],yaw:0,bedName:'Deck Ranjang 2'},
- {id:'deck-2',location:'deck',pos:[ 1.25,3.20,-1.82],yaw:0,bedName:'Deck Ranjang 3'},
- {id:'deck-3',location:'deck',pos:[-1.75,3.20, 1.82],yaw:Math.PI,bedName:'Deck Ranjang 4'},
- {id:'deck-4',location:'deck',pos:[-0.25,3.20, 1.82],yaw:Math.PI,bedName:'Deck Ranjang 5'},
- {id:'deck-5',location:'deck',pos:[ 1.25,3.20, 1.82],yaw:Math.PI,bedName:'Deck Ranjang 6'},
- // 4 Ranjang di Barak Guild
- {id:'barak-0',location:'barracks',pos:[5.8,0.40,-10.2],yaw:Math.PI,bedName:'Barak Ranjang 1'},
- {id:'barak-1',location:'barracks',pos:[3.2,0.40,-10.2],yaw:Math.PI,bedName:'Barak Ranjang 2'},
- {id:'barak-2',location:'barracks',pos:[5.8,0.40,-11.8],yaw:Math.PI,bedName:'Barak Ranjang 3'},
- {id:'barak-3',location:'barracks',pos:[3.2,0.40,-11.8],yaw:Math.PI,bedName:'Barak Ranjang 4'},
- // 2 Ranjang di Tenda Awal Rumu
- {id:'tent-0',location:'tent',pos:[-0.16,3.20,-0.3],yaw:0,bedName:'Tenda Ranjang 1'},
- {id:'tent-1',location:'tent',pos:[ 0.16,3.20,-0.3],yaw:0,bedName:'Tenda Ranjang 2'},
-];
-
-export function getBedForResident(index:number):BedTarget{
- return ALL_BED_TARGETS[((index%ALL_BED_TARGETS.length)+ALL_BED_TARGETS.length)%ALL_BED_TARGETS.length];
-}
-
-export function routeToBed(start:WalkPoint,bedIndex:number):[number,number,number][]{
- const bed=getBedForResident(bedIndex);
- if(bed.location==='deck'||bed.location==='tent'){
-  const groundPath=avoidBarracks([start,LADDER_LAYOUT.base]);
-  const waypoints:[number,number,number][]=groundPath.map(p=>[p[0],LADDER_LAYOUT.groundY,p[1]]);
-  const climbSteps=4;
-  for(let i=1;i<=climbSteps;i++){
-   const u=i/climbSteps;
-   const lx=LADDER_LAYOUT.base[0]+(LADDER_LAYOUT.top[0]-LADDER_LAYOUT.base[0])*u;
-   const lz=LADDER_LAYOUT.base[1]+(LADDER_LAYOUT.top[1]-LADDER_LAYOUT.base[1])*u;
-   const ly=LADDER_LAYOUT.groundY+(LADDER_LAYOUT.deckFloorY-LADDER_LAYOUT.groundY)*u;
-   waypoints.push([lx,ly,lz]);
-  }
-  waypoints.push([bed.pos[0],LADDER_LAYOUT.deckFloorY,LADDER_LAYOUT.top[1]]);
-  waypoints.push([bed.pos[0],LADDER_LAYOUT.deckFloorY,bed.pos[2]]);
-  return waypoints;
- }else{
-  const doorApproach:WalkPoint=[3.85,-9.2],doorInside:WalkPoint=[4.5,-10.5];
-  const groundPath=avoidBarracks([start,doorApproach]);
-  const waypoints:[number,number,number][]=groundPath.map(p=>[p[0],0.015,p[1]]);
-  waypoints.push([doorInside[0],0.18,doorInside[1]]);
-  waypoints.push([bed.pos[0],bed.pos[1],bed.pos[2]]);
-  return waypoints;
- }
-}
+export const BARRACKS_LAYOUT={x:4.5,z:-11,width:5.2,depth:5.4,eaves:2.83,ridge:3.68,roofWidth:5.7,roofDepth:5.9,yaw:Math.atan2(-4.5,11)} as const;
+export const RUMU_DECK_LAYOUT={floorY:3.08,upperFloorY:3.20,centerX:-.25,length:4.9,wingDepth:1.48,wingZ:1.94} as const;
 export type WalkPoint=[number,number];
 export type WalkBounds={minX:number;maxX:number;minZ:number;maxZ:number};
+let stairsBounds:WalkBounds|undefined;
+export function setStairWalkBounds(bounds:WalkBounds|undefined){stairsBounds=bounds;loops.clear();}
+export function walkObstacles(){return [barracksWalkBounds(),...(stairsBounds?[stairsBounds]:[])];}
 /** Includes roof projection and a full character radius, not just the building origin. */
 export function barracksWalkBounds(clearance=.45):WalkBounds{
  const b=BARRACKS_LAYOUT,c=Math.abs(Math.cos(b.yaw)),s=Math.abs(Math.sin(b.yaw));
@@ -69,13 +22,13 @@ export function crossesBarracks(a:WalkPoint,z:WalkPoint,b=barracksWalkBounds()){
 }
 /** A tiny visibility graph around one building; no random jumps or deleted scenery. */
 export function detourBarracks(start:WalkPoint,end:WalkPoint):WalkPoint[]{
- const b=barracksWalkBounds();if(!crossesBarracks(start,end,b))return [end];
- const e=.025,nodes:WalkPoint[]=[start,end,[b.minX-e,b.minZ-e],[b.maxX+e,b.minZ-e],[b.maxX+e,b.maxZ+e],[b.minX-e,b.maxZ+e]];
+ const obstacles=walkObstacles();if(obstacles.every(b=>!crossesBarracks(start,end,b)))return [end];
+ const e=.04,nodes:WalkPoint[]=[start,end,...obstacles.flatMap(b=>[[b.minX-e,b.minZ-e],[b.maxX+e,b.minZ-e],[b.maxX+e,b.maxZ+e],[b.minX-e,b.maxZ+e]] as WalkPoint[])];
  const distance=nodes.map(()=>Infinity),previous=nodes.map(()=>-1),done=new Set<number>();distance[0]=0;
  for(let n=0;n<nodes.length;n++){
   let u=-1;for(let i=0;i<nodes.length;i++)if(!done.has(i)&&(u<0||distance[i]<distance[u]))u=i;
   if(u<0||!Number.isFinite(distance[u])||u===1)break;done.add(u);
-  for(let v=0;v<nodes.length;v++){if(v===u||done.has(v)||crossesBarracks(nodes[u],nodes[v],b))continue;
+  for(let v=0;v<nodes.length;v++){if(v===u||done.has(v)||obstacles.some(b=>crossesBarracks(nodes[u],nodes[v],b)))continue;
    const d=distance[u]+Math.hypot(nodes[v][0]-nodes[u][0],nodes[v][1]-nodes[u][1]);if(d<distance[v]){distance[v]=d;previous[v]=u;}
   }
  }
@@ -90,7 +43,7 @@ type WalkLoop={points:WalkPoint[];lengths:number[];length:number};
 const loops=new Map<string,WalkLoop>();
 function safeLoop(rx:number,rz:number){
  const key=rx+','+rz,known=loops.get(key);if(known)return known;
- const raw:WalkPoint[]=Array.from({length:160},(_,i)=>{const angle=i/160*Math.PI*2;return [Math.cos(angle)*rx,Math.sin(angle)*rz] as WalkPoint;}).filter(p=>!insideBarracks(p));
+ const raw:WalkPoint[]=Array.from({length:160},(_,i)=>{const angle=i/160*Math.PI*2;return [Math.cos(angle)*rx,Math.sin(angle)*rz] as WalkPoint;}).filter(p=>walkObstacles().every(b=>!insideBarracks(p,b)));
  const path=avoidBarracks([...raw,raw[0]]),lengths=[0];for(let i=1;i<path.length;i++)lengths.push(lengths[i-1]+Math.hypot(path[i][0]-path[i-1][0],path[i][1]-path[i-1][1]));
  const loop={points:path,lengths,length:lengths[lengths.length-1]};loops.set(key,loop);return loop;
 }

@@ -5,15 +5,17 @@ import type {HairStyle,SkinTone} from './appearance-options';
 import type {Gender} from './character-options';
 import {type Loadout} from './cosmetics';
 import {useEffect,useRef,useState} from 'react';
-import {createMotion,advanceMotion,recentActivity,workSlots,dockPoint,ringPoint,ROLE_SPECIALTIES,type MotionState} from './activity-motion';
+import {createMotion,advanceMotion,recentActivity,workSlots,dockPoint,ringPoint,ringAngle,ROLE_SPECIALTIES,type MotionState} from './activity-motion';
 import {createActivityKit,animateActivity,type ActivityKit} from './activity-animation';
 import * as THREE from 'three';
-import {createAvatar,animateAvatar,disposeAvatar} from './avatar-model';
+import {createAvatar,disposeAvatar} from './avatar-model';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
-import {createRumuDeck} from './guild-buildings';
+import {createRumuDeck,createDeckStairs,openOriginalCampWalkway} from './guild-buildings';
 import {getRumuMilestone} from './milestones';
-import {getBedForResident,routeToBed,LADDER_LAYOUT,ALL_BED_TARGETS} from './guild-building-layout';
+import {setStairWalkBounds,avoidBarracks,type WalkBounds} from './guild-building-layout';
+import {animateRest,restoreRestGear} from './rest-animation';
+import {BedReservations,availableBeds,createRestFrame,updateRestFrame,stairBounds,startRest,advanceRest,type RestState,type RestFrame} from './rest-motion';
 
 export const RUMU_ARU_LORE = [
  {speaker:'Aru',role:'Pengurus Guild',text:'Barak sudah berdiri! Anggota guild punya tempat berlindung yang layak sekarang.'},
@@ -142,9 +144,11 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    lantern?:THREE.Object3D;
   }|null=null;
 
+  let restFrame:RestFrame|undefined,stairOwner:string|undefined;const reservations=new BedReservations(),stairs=createDeckStairs();stairs.root.visible=false;scene.add(stairs.root);
+  const restProps=():WalkBounds[]=>{const bounds:WalkBounds[]=forestTrees.map(tree=>({minX:tree.position.x-.5,maxX:tree.position.x+.5,minZ:tree.position.z-.5,maxZ:tree.position.z+.5}));for(const child of environment.current.children[0]?.children??[]){if(!child.name.startsWith('camp-')&&!['kolam','api-unggun'].includes(child.name))continue;const b=new THREE.Box3().setFromObject(child);if(!b.isEmpty())bounds.push({minX:b.min.x-.35,maxX:b.max.x+.35,minZ:b.min.z-.35,maxZ:b.max.z+.35});}return bounds;};
   new GLTFLoader().load('/assets/rumu.glb',g=>{
    if(dead)return;
-   rumu=g.scene;
+   rumu=g.scene;openOriginalCampWalkway(rumu);
    const box=new THREE.Box3().setFromObject(rumu);
    const size=box.getSize(new THREE.Vector3());
    const rumuMilestone=getRumuMilestone(memberCountRef.current);
@@ -205,8 +209,9 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
 
    const rumuDeck=createRumuDeck();rumu.add(rumuDeck);
    const center=box.getCenter(new THREE.Vector3()),baseScale=12/Math.max(size.x,size.z);
-   syncRumu.current=()=>{if(!rumu||!rumuParts)return;const milestone=getRumuMilestone(memberCountRef.current);const scale=baseScale*milestone.current.scaleMultiplier;rumu.scale.setScalar(scale);rumu.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale);rumuParts.baseY=rumu.position.y;rumuDeck.visible=milestone.current.level>=2;};
+   syncRumu.current=()=>{if(!rumu||!rumuParts)return;const milestone=getRumuMilestone(memberCountRef.current);const scale=baseScale*milestone.current.scaleMultiplier;rumu.scale.setScalar(scale);rumu.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale);rumuParts.baseY=rumu.position.y;rumuDeck.visible=milestone.current.level>=2;rumu.updateMatrixWorld(true);restFrame=createRestFrame(rumu.matrixWorld);stairs.root.visible=rumuDeck.visible;setStairWalkBounds(stairs.root.visible?stairBounds(restFrame):undefined);stairs.update(restFrame);};
    syncRumu.current();
+   for(const actor of citizens.current.children){const m=actor.userData.motion as MotionState;const [x,z]=ringPoint(m.angle,m.rx,m.rz);actor.position.set(x,.015,z);}
 
   },undefined,()=>{el.dataset.error='true';});
 
@@ -428,25 +433,21 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    }else if(ca)for(const sm of ca.smokePool)(sm.material as THREE.MeshBasicMaterial).opacity=0;
 
    // === Simulasi Warga & Aktivitas Peran Dinamis ===
-   const actors=citizens.current.children;const slots=workSlots(actors.map(o=>o.userData.resident),now);
+   if(restFrame&&rumu){rumu.updateMatrixWorld(true);updateRestFrame(restFrame,rumu.matrixWorld);stairs.update(restFrame);}
+   const actors=citizens.current.children;if(stairOwner&&!actors.some(o=>o.userData.bed===stairOwner))stairOwner=undefined;reservations.sync(actors.map(o=>o.userData.bed),availableBeds(getRumuMilestone(memberCountRef.current).current.level));const slots=workSlots(actors.map(o=>o.userData.resident),now);
    actors.forEach((o,i)=>{const r=o.userData.resident,m=o.userData.motion as MotionState,rig=o.userData.rig,kit=o.userData.activityKit as ActivityKit;if(!rig||!m||!kit)return;
-    const isNight=nightRef.current,bedTarget=getBedForResident(i),a=recentActivity(r,now);
-    if(isNight&&!a){
-     let moving=false;
-     if(!o.userData.sleepPath&&!o.userData.isSleeping){o.userData.sleepPath=routeToBed([o.position.x,o.position.z],i);o.userData.isSleeping=false;}
-     if(o.userData.sleepPath&&o.userData.sleepPath.length>0){
-      const target=o.userData.sleepPath[0],dx=target[0]-o.position.x,dy=target[1]-o.position.y,dz=target[2]-o.position.z,horizDist=Math.hypot(dx,dz),step=Math.min(0.1,Math.max(0,dt))*1.65;
-      if(horizDist<=step&&Math.abs(dy)<=0.35){o.position.x=target[0];o.position.y=target[1];o.position.z=target[2];o.userData.sleepPath.shift();if(o.userData.sleepPath.length===0)o.userData.isSleeping=true;}
-      else{o.position.x+=(dx/(horizDist||1))*Math.min(horizDist,step);o.position.z+=(dz/(horizDist||1))*Math.min(horizDist,step);o.position.y+=dy*Math.min(1,dt*5.0);moving=true;o.rotation.y=Math.atan2(dx,dz);}
-      o.rotation.z=0;animateActivity(rig,kit,t+i,undefined,0,reduced,moving,false);
-     }else if(o.userData.isSleeping){
-      moving=false;o.position.x=bedTarget.pos[0];o.position.z=bedTarget.pos[2];
-      const sleepBedY=bedTarget.pos[1]+(bedTarget.location==='barracks'?0.35:0.25);
-      o.position.y=sleepBedY+Math.sin(t*1.6+i)*0.012;o.rotation.y=bedTarget.yaw;o.rotation.z=Math.PI/2;
-      animateActivity(rig,kit,t+i,undefined,0,reduced,false,false);
-     }
-    }else{
-     if(o.userData.isSleeping||o.userData.sleepPath){o.userData.isSleeping=false;o.userData.sleepPath=null;o.rotation.z=0;if(o.position.y>0.05)o.position.y=Math.max(0.015,o.position.y-dt*6.0);}
+    const a=recentActivity(r,now),assigned=reservations.owners.get(r.bed);let rest=o.userData.rest as RestState|undefined;
+    if(restFrame&&nightRef.current&&!a&&assigned&&!rest&&now>(o.userData.restRetryAt??0)){rest=startRest(o.position,assigned,restFrame,restProps());o.userData.rest=rest;o.userData.restRetryAt=now+5000;}
+    if(restFrame&&rest){
+     const next=rest.path[0],needsStairs=next&&(next.space==='stairs'||(next.space==='world'&&new THREE.Vector3(...next.pos).distanceTo(restFrame.stairsBase)<.05));
+     if(needsStairs&&!stairOwner)stairOwner=r.bed;
+     const waiting=!!needsStairs&&stairOwner!==r.bed;o.userData.waitingStairs=waiting;
+     const result=waiting?{moving:false,climbing:false,done:false}:advanceRest(rest,o.position,o.quaternion,restFrame,dt,nightRef.current&&!a);
+     if(stairOwner===r.bed&&!needsStairs)stairOwner=undefined;
+     animateRest(rig,kit,rest,t+i,reduced,result.moving,result.climbing);
+     if(!result.done)return;
+     if(stairOwner===r.bed)stairOwner=undefined;restoreRestGear(o);o.userData.rest=undefined;o.rotation.set(0,o.rotation.y,0);m.stamp=0;m.phase='return';m.angle=ringAngle([o.position.x,o.position.z],m.rx,m.rz);m.path=avoidBarracks([[o.position.x,o.position.z],ringPoint(m.angle,m.rx,m.rz)]).slice(1);return;
+    }
      const beforeX=o.position.x,beforeZ=o.position.z;let moving=false;
      const roleSpecialty=r.role?(ROLE_SPECIALTIES[r.role]||'guard'):'guard';
      if(reduced){const a=recentActivity(r,now),slot=slots.get(r.bed);if(a&&slot!==undefined){const [x,z]=dockPoint(a.impact,slot);o.position.set(x,.015,z);m.phase='work';m.action=a;}else{const [x,z]=ringPoint(m.angle,m.rx,m.rz);o.position.set(x,.015,z);m.phase=a?'queue':'stroll';m.action=undefined;}}
@@ -461,7 +462,6 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
      o.rotation.y+=Math.atan2(Math.sin(yaw-o.rotation.y),Math.cos(yaw-o.rotation.y))*(reduced?1:1-Math.exp(-Math.min(dt,.1)*8));
      const activeId=m.phase==='work'?m.action?.id:(m.phase==='idle'?(m.idleAction as any):undefined);
      animateActivity(rig,kit,t+i,activeId,m.workTime,reduced,moving,m.phase==='work');
-    }
    });
 
    if(now-reportedAt>1000){
@@ -476,17 +476,10 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
     };
     setRows(actors.flatMap((o,i)=>{
      const r=o.userData.resident,a=recentActivity(r,now),m=o.userData.motion as MotionState;
-     if(a){
-      return [{bed:r.bed,name:r.name,title:a.title,phase:({work:'Sedang bekerja',travel:'Menuju area',queue:'Menunggu giliran',return:'Kembali ke kamp'} as Record<string,string>)[m.phase]||'Beraktivitas'}];
-     }
-     if(nightRef.current){
-      const bedTarget=getBedForResident(i);
-      if(o.userData.isSleeping){
-       return [{bed:r.bed,name:r.name,title:'Tidur di '+bedTarget.bedName,phase:'Tidur di kasur'}];
-      }else{
-       return [{bed:r.bed,name:r.name,title:'Menuju '+bedTarget.bedName,phase:'Menuju ranjang'}];
-      }
-     }
+     const rest=o.userData.rest as RestState|undefined;
+     if(rest){const phase=rest.phase==='sleep'?'Tidur di kasur':rest.phase==='rise'||rest.phase==='leave'?'Bangun dan kembali ke kamp':o.userData.waitingStairs?'Menunggu tangga':'Menuju ranjang';return [{bed:r.bed,name:r.name,title:rest.bed.bedName,phase}];}
+     if(a){return [{bed:r.bed,name:r.name,title:a.title,phase:({work:'Sedang bekerja',travel:'Menuju area',queue:'Menunggu giliran',return:'Kembali ke kamp'} as Record<string,string>)[m.phase]||'Beraktivitas'}];}
+     if(nightRef.current&&!a)return [{bed:r.bed,name:r.name,title:reservations.owners.has(r.bed)?'Menunggu jalur istirahat':'Belum ada kasur kosong',phase:'Menunggu tempat istirahat'}];
      const roleSpecialty=r.role?(ROLE_SPECIALTIES[r.role]||'guard'):'guard';
      if(m.phase==='idle'){
       return [{bed:r.bed,name:r.name,title:roleIdleNames[roleSpecialty]||'Aktivitas peran',phase:'Aktivitas peran'}];
@@ -499,7 +492,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    const sight=new THREE.Ray(camera.position,controls.target.clone().sub(camera.position).normalize()),sightLength=camera.position.distanceTo(controls.target);for(const tree of scene.children)if(tree.userData.forest){const hit=follow.current?sight.intersectBox(tree.userData.occlusionBox,new THREE.Vector3()):null;tree.visible=!hit||camera.position.distanceTo(hit)>sightLength-.4;}
    if(pulse.current){const age=(performance.now()-pulse.current.started)/1600;const p=pulse.current.mesh;p.visible=age<1;p.scale.setScalar(.7+Math.min(1,age)*1.5);(p.material as THREE.MeshBasicMaterial).opacity=Math.max(0,1-age);}
    fireflies.rotation.y=reduced?0:t*.016;controls.update();renderer.render(scene,camera);id=requestAnimationFrame(animate);};animate();
-  return()=>{dead=true;cancelAnimationFrame(id);observer.disconnect();controls.dispose();disposeAvatar(scene);renderer.dispose();el.replaceChildren();state.current=null;campAnimRef.current=null;rumuParts=null;syncRumu.current=null;};
+  return()=>{dead=true;cancelAnimationFrame(id);observer.disconnect();controls.dispose();disposeAvatar(scene);renderer.dispose();el.replaceChildren();state.current=null;campAnimRef.current=null;rumuParts=null;syncRumu.current=null;setStairWalkBounds(undefined);};
  },[]);
 
  useEffect(()=>{const s=state.current;if(!s)return;
@@ -513,6 +506,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
 
  useEffect(()=>{const group=citizens.current,visible=residents.slice(0,12),beds=new Set(visible.map(r=>r.bed));for(const child of [...group.children])if(!beds.has(child.userData.bed)){disposeAvatar(child);group.remove(child);}
   visible.forEach((r,i)=>{const signature=JSON.stringify([r.role,r.color,r.gender,r.hairStyle,r.skinTone,r.outfit]);let existing=group.children.find(o=>o.userData.bed===r.bed);
+  const previousPose=existing?{position:existing.position.clone(),rotation:existing.quaternion.clone(),motion:existing.userData.motion,rest:existing.userData.rest,restRetryAt:existing.userData.restRetryAt}:undefined;
   if(existing&&existing.userData.appearance!==signature){const previous=existing;existing=undefined;group.remove(previous);disposeAvatar(previous);}
   if(!existing){
    const rig=createAvatar(r),angle=i*Math.PI*2/visible.length;
@@ -521,6 +515,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    rig.root.position.set(x,.015,z);
    rig.root.userData.motion=motion;
    rig.root.userData.activityKit=createActivityKit(rig);
+   if(previousPose){rig.root.position.copy(previousPose.position);rig.root.quaternion.copy(previousPose.rotation);rig.root.userData.motion=previousPose.motion;rig.root.userData.rest=previousPose.rest;rig.root.userData.restRetryAt=previousPose.restRetryAt;}
    rig.root.userData.appearance=signature;
    group.add(rig.root);
    existing=rig.root;
@@ -561,7 +556,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    <aside className="world-activity" aria-label="Aktivitas anggota di dunia">
     <b>{rows.length?`${rows.length} petualang terlihat`:'Kamp berjalan tenang'}</b>
     {rows.map(r=><button key={r.bed} onClick={()=>onFollow(r.bed)} aria-label={`Ikuti ${r.name}: ${r.title}`}><span>{r.name}</span><small>{r.phase} · {r.title}</small></button>)}
-    <small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota beraktivitas & berjalan santai di kamp.'} Maks. 12 anggota tampil. Bukan status online.</small>
+    <small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota beraktivitas & berjalan santai di kamp.'} {availableBeds(getRumuMilestone(totalMembers).current.level).length} kasur bersama. Maks. 12 anggota tampil. Bukan status online.</small>
    </aside>
   </>
  );

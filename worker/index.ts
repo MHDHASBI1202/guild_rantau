@@ -14,16 +14,12 @@ const worker = {
         decodedPath === '/login' ||
         decodedPath === '/sign-in' ||
         decodedPath === '/signin with chatgpt' ||
-        decodedPath === '/signin-with-chatgpt' ||
-        decodedPath.startsWith('/signin') ||
-        decodedPath.startsWith('/login')
+        (!import.meta.env.DEV && decodedPath === '/signin-with-chatgpt')
       ) {
-        if (decodedPath !== '/masuk') {
           const returnTo = url.searchParams.get('return_to') || '/';
           const target = new URL('/masuk', request.url);
           target.searchParams.set('return_to', returnTo);
           return Response.redirect(target, 302);
-        }
       }
 
       if (
