@@ -23,9 +23,9 @@ export const RUMU_ARU_LORE = [
  {speaker:'Rumu',role:'Monster Batu Lv. 1',text:'Pelan-pelan saja. Yang penting kita jalan bersama.'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Di punggung Rumu kita aman. Hutan Bisik boleh berkabut, tapi rumah kita tetap hangat.'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Kayu dan daun obat yang kamu kumpulkan sangat berarti buat masa depan kamp kita!'},
- {speaker:'Aru',role:'Pengurus Guild',text:'Barak buat tidur, atau Menara buat berjaga? Arah guild kita tentukan bareng.'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Barak sudah jadi berkat pilihan kalian. Arah pembangunan berikutnya kita tentukan bareng.'},
  {speaker:'Rumu',role:'Monster Batu Lv. 1',text:'*Krrr-krrr...* (Rumu mendengkur pelan, menikmati segarnya angin Hutan Bisik).'},
- {speaker:'Aru',role:'Pengurus Guild',text:'Rumu ini monster batu level satu. Badannya besar, hatinya jauh lebih besar!'},
+ {speaker:'Aru',role:'Pengurus Guild',text:'Rumu tumbuh bersama anggota guild. Badannya besar, hatinya jauh lebih besar!'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Kalau kamu lelah berkelana hari ini, jangan lupa istirahat di ranjang kamp ya.'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Dari satu tenda kecil ini, suatu hari nanti kita akan jadi kota berjalan megah!'},
  {speaker:'Aru',role:'Pengurus Guild',text:'Terima kasih sudah singgah di Guild Rantau. Setiap langkahmu adalah bagian dari kisah ini.'},
@@ -547,7 +547,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    >
     <div className="aru-lore-header">
      <span className="aru-lore-avatar">{RUMU_ARU_LORE[loreIndex].speaker==='Rumu'?'🪨':'🏕️'}</span>
-     <span className="aru-lore-speaker">{RUMU_ARU_LORE[loreIndex].speaker} <small>· {RUMU_ARU_LORE[loreIndex].role}</small></span>
+     <span className="aru-lore-speaker">{RUMU_ARU_LORE[loreIndex].speaker} <small>· {RUMU_ARU_LORE[loreIndex].speaker==='Rumu'?`Monster Batu Lv. ${getRumuMilestone(totalMembers).current.level}`:RUMU_ARU_LORE[loreIndex].role}</small></span>
      <span className="aru-lore-hint">Klik 💬</span>
     </div>
     <p className="aru-lore-text">"{RUMU_ARU_LORE[loreIndex].text}"</p>
