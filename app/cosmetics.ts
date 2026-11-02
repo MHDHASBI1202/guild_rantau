@@ -36,7 +36,7 @@ export const DEFAULT_LOADOUT:Loadout={baju:'linen',topi:'peran',celana:'arang',a
 export const itemKey=(item:Pick<Item,'slot'|'id'>)=>`${item.slot}:${item.id}`;
 export const STARTER=ITEMS.filter(i=>i.rarity==='awal').map(itemKey);
 export const findItem=(slot:Slot,id:string)=>ITEMS.find(i=>i.slot===slot&&i.id===id);
-export type WardrobeState={owned:string[];equipped:Loadout;titles?:string[];title?:string};
+export type WardrobeState={owned:string[];equipped:Loadout;titles?:string[];title?:string;subrole?:string};
 export function parseCosmetics(raw:unknown):WardrobeState{
  let value:Partial<WardrobeState>={};try{value=typeof raw==='string'?JSON.parse(raw):raw as Partial<WardrobeState>||{};}catch{}
  if(!value||typeof value!=='object')value={};
@@ -44,7 +44,8 @@ export function parseCosmetics(raw:unknown):WardrobeState{
  const equipped={...DEFAULT_LOADOUT};for(const slot of SLOTS){const id=value.equipped?.[slot];if(typeof id==='string'&&owned.includes(`${slot}:${id}`))equipped[slot]=id;}
  const titles=Array.isArray(value.titles)?value.titles.filter(t=>typeof t==='string'):[];
  const title=typeof value.title==='string'&&(titles.includes(value.title)||value.title==='')?value.title:(titles[0]??'');
- return {owned,equipped,titles,title};
+ const subrole=typeof value.subrole==='string'?value.subrole:'';
+ return {owned,equipped,titles,title,...(subrole?{subrole}:{})};
 }
 export function starterWardrobe(equipped?: Partial<Loadout>): WardrobeState {
  if (equipped !== undefined) {

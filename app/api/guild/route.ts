@@ -1,4 +1,4 @@
-import {ROLES as roles} from '../../role-options';
+import {ROLES as roles,defaultSubrole,validSubrole} from '../../role-options';
 import {EMPTY_WORLD,IMPACTS,activityReward,type WorldProgress} from '../../world-progress';
 import {validHair,validSkin,DEFAULT_HAIR,DEFAULT_SKIN} from '../../appearance-options';
 import {GENDERS,normalizeGender,type Gender} from '../../character-options';
@@ -19,8 +19,8 @@ async function reply(userId:string|null,extra:Record<string,unknown>={}){
  const count=await db.prepare(MEMBER_COUNTS_SQL).bind(now-ACTIVE_MEMBER_WINDOW_MS).first<{total:number;activeCount:number}>();
  const row=userId?await db.prepare(`SELECT ${privateFields} FROM members WHERE id=?`).bind(userId).first<Stored>():null;
  let me=null;
- if(row){const {cosmetics,...rest}=row;const wardrobe=parseCosmetics(cosmetics);const recent=await db.prepare('SELECT id,item_id AS itemKey,created_at AS createdAt FROM spin_history WHERE member_id=? ORDER BY created_at DESC,id DESC LIMIT 10').bind(userId).all();me={...rest,gender:normalizeGender(row.gender),highestLevel:Math.max(row.highestLevel,getMemberLevel(row.xp)),wardrobe,outfit:wardrobe.equipped,title:wardrobe.title,titles:wardrobe.titles,tickets:ticketsFor(row.xp,row.highestLevel,row.spinsUsed),recentSpins:recent.results};}
- const members=all.results.map(({cosmetics,...member})=>{const w=parseCosmetics(cosmetics);return {...member,gender:normalizeGender(member.gender),outfit:w.equipped,title:w.title};});
+ if(row){const {cosmetics,...rest}=row;const wardrobe=parseCosmetics(cosmetics);const recent=await db.prepare('SELECT id,item_id AS itemKey,created_at AS createdAt FROM spin_history WHERE member_id=? ORDER BY created_at DESC,id DESC LIMIT 10').bind(userId).all();me={...rest,gender:normalizeGender(row.gender),subrole:wardrobe.subrole||defaultSubrole(row.role),highestLevel:Math.max(row.highestLevel,getMemberLevel(row.xp)),wardrobe,outfit:wardrobe.equipped,title:wardrobe.title,titles:wardrobe.titles,tickets:ticketsFor(row.xp,row.highestLevel,row.spinsUsed),recentSpins:recent.results};}
+ const members=all.results.map(({cosmetics,...member})=>{const w=parseCosmetics(cosmetics);return {...member,gender:normalizeGender(member.gender),subrole:w.subrole||defaultSubrole(member.role),outfit:w.equipped,title:w.title};});
  const world=await db.prepare('SELECT wood,herbs,defense,comfort,exploration,craft,farm,magic,updated_at AS updatedAt FROM camp_state WHERE id=1').first<WorldProgress>()??EMPTY_WORLD;
  const events=await db.prepare('SELECT id,action,role,amount,created_at AS createdAt FROM world_events ORDER BY created_at DESC,id DESC LIMIT 8').all();
  return Response.json({signedIn:!!userId,me,members,total:count?.total??0,activeCount:count?.activeCount??0,world,worldEvents:events.results,...extra},{headers:{'Cache-Control':'no-store'}});
@@ -39,7 +39,9 @@ export async function POST(request:Request){
   const gender=body.gender;if(!GENDERS.includes(gender as Gender))return fail('Pilih gender karakter: Laki-laki atau Perempuan.');
   if(name.length<2||name.length>24||!roles.includes(body.role)||!colors.includes(body.color))return fail('Nama 2–24 karakter, pilih peran dan warna.');
   if(await db.prepare('SELECT id FROM members WHERE id=?').bind(user.userId).first())return fail('Kamu sudah punya karakter.',409);
-  await db.prepare('INSERT OR IGNORE INTO members (id,name,role,color,gender,hair_style,skin_tone,joined_at,bed) VALUES (?,?,?,?,?,?,?,?,?)').bind(user.userId,name,body.role,body.color,gender,hairStyle,skinTone,Date.now(),'R-'+crypto.randomUUID().slice(0,8).toUpperCase()).run();
+  const subrole=typeof body.subrole==='string'&&validSubrole(body.role,body.subrole)?body.subrole:defaultSubrole(body.role);
+  const initialWardrobe={...starterWardrobe(),subrole};
+  await db.prepare('INSERT OR IGNORE INTO members (id,name,role,color,gender,hair_style,skin_tone,joined_at,bed,cosmetics) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(user.userId,name,body.role,body.color,gender,hairStyle,skinTone,Date.now(),'R-'+crypto.randomUUID().slice(0,8).toUpperCase(),JSON.stringify(initialWardrobe)).run();
   return reply(user.userId);
  }
  const member=await db.prepare(`SELECT ${privateFields} FROM members WHERE id=?`).bind(user.userId).first<Stored>();
@@ -101,11 +103,17 @@ export async function POST(request:Request){
   const gender=body.gender??normalizeGender(member.gender);if(!GENDERS.includes(gender as Gender))return fail('Pilih gender karakter: Laki-laki atau Perempuan.');
   const name=typeof body.name==='string'?body.name.trim():'';
   if(name.length<2||name.length>24||!roles.includes(body.role)||!colors.includes(body.color))return fail('Nama 2–24 karakter, pilih peran dan warna yang tersedia.');
-  await db.prepare('UPDATE members SET name=?,role=?,color=?,gender=?,hair_style=?,skin_tone=? WHERE id=?').bind(name,body.role,body.color,gender,hairStyle,skinTone,user.userId).run();
+  const wardrobe=parseCosmetics(member.cosmetics);
+  const subrole=typeof body.subrole==='string'&&validSubrole(body.role,body.subrole)?body.subrole:defaultSubrole(body.role);
+  wardrobe.subrole=subrole;
+  await db.prepare('UPDATE members SET name=?,role=?,color=?,gender=?,hair_style=?,skin_tone=?,cosmetics=? WHERE id=?').bind(name,body.role,body.color,gender,hairStyle,skinTone,JSON.stringify(wardrobe),user.userId).run();
  }else if(body.action==='reroll'){
   if(body.confirmation!=='ACAK ULANG')return fail('Konfirmasi acak ulang diperlukan.');
   const otherRoles=roles.filter(r=>r!==member.role),otherColors=colors.filter(c=>c!==member.color),values=crypto.getRandomValues(new Uint32Array(2));
-  await db.prepare('UPDATE members SET role=?,color=? WHERE id=?').bind(otherRoles[values[0]%otherRoles.length],otherColors[values[1]%otherColors.length],user.userId).run();
+  const newRole=otherRoles[values[0]%otherRoles.length],newColor=otherColors[values[1]%otherColors.length];
+  const wardrobe=parseCosmetics(member.cosmetics);
+  wardrobe.subrole=defaultSubrole(newRole);
+  await db.prepare('UPDATE members SET role=?,color=?,cosmetics=? WHERE id=?').bind(newRole,newColor,JSON.stringify(wardrobe),user.userId).run();
  }else if(body.action==='reset'){
   if(body.confirmation!=='MULAI ULANG')return fail('Ketik MULAI ULANG untuk mereset progres.');
   await db.prepare("UPDATE members SET highest_level=?,xp=0,wood=0,herbs=0,last_action=0,activity='Memulai perjalanan dari awal' WHERE id=?").bind(Math.max(member.highestLevel,getMemberLevel(member.xp)),user.userId).run();
