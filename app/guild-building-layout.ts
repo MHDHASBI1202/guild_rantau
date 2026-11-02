@@ -1,5 +1,55 @@
 export const BARRACKS_LAYOUT={x:4.5,z:-11,width:5.2,depth:3.8,eaves:2.83,ridge:3.68,roofWidth:5.7,roofDepth:4.3,yaw:Math.atan2(-4.5,11)} as const;
 export const RUMU_DECK_LAYOUT={floorY:3.08,upperFloorY:3.20,centerX:-.25,length:4.9,wingDepth:1.16,wingZ:1.82} as const;
+export const LADDER_LAYOUT={base:[-3.75,-0.60] as WalkPoint,top:[-2.60,-0.60] as WalkPoint,deckFloorY:3.20,groundY:0.015} as const;
+
+export type BedTarget={id:string;location:'deck'|'barracks'|'tent';pos:[number,number,number];yaw:number;bedName:string};
+export const ALL_BED_TARGETS:BedTarget[]=[
+ // 6 Ranjang di Punggung Rumu (Deck Rumu)
+ {id:'deck-0',location:'deck',pos:[-1.75,3.20,-1.82],yaw:0,bedName:'Deck Ranjang 1'},
+ {id:'deck-1',location:'deck',pos:[-0.25,3.20,-1.82],yaw:0,bedName:'Deck Ranjang 2'},
+ {id:'deck-2',location:'deck',pos:[ 1.25,3.20,-1.82],yaw:0,bedName:'Deck Ranjang 3'},
+ {id:'deck-3',location:'deck',pos:[-1.75,3.20, 1.82],yaw:Math.PI,bedName:'Deck Ranjang 4'},
+ {id:'deck-4',location:'deck',pos:[-0.25,3.20, 1.82],yaw:Math.PI,bedName:'Deck Ranjang 5'},
+ {id:'deck-5',location:'deck',pos:[ 1.25,3.20, 1.82],yaw:Math.PI,bedName:'Deck Ranjang 6'},
+ // 4 Ranjang di Barak Guild
+ {id:'barak-0',location:'barracks',pos:[5.8,0.40,-10.2],yaw:Math.PI,bedName:'Barak Ranjang 1'},
+ {id:'barak-1',location:'barracks',pos:[3.2,0.40,-10.2],yaw:Math.PI,bedName:'Barak Ranjang 2'},
+ {id:'barak-2',location:'barracks',pos:[5.8,0.40,-11.8],yaw:Math.PI,bedName:'Barak Ranjang 3'},
+ {id:'barak-3',location:'barracks',pos:[3.2,0.40,-11.8],yaw:Math.PI,bedName:'Barak Ranjang 4'},
+ // 2 Ranjang di Tenda Awal Rumu
+ {id:'tent-0',location:'tent',pos:[-0.16,3.20,-0.3],yaw:0,bedName:'Tenda Ranjang 1'},
+ {id:'tent-1',location:'tent',pos:[ 0.16,3.20,-0.3],yaw:0,bedName:'Tenda Ranjang 2'},
+];
+
+export function getBedForResident(index:number):BedTarget{
+ return ALL_BED_TARGETS[((index%ALL_BED_TARGETS.length)+ALL_BED_TARGETS.length)%ALL_BED_TARGETS.length];
+}
+
+export function routeToBed(start:WalkPoint,bedIndex:number):[number,number,number][]{
+ const bed=getBedForResident(bedIndex);
+ if(bed.location==='deck'||bed.location==='tent'){
+  const groundPath=avoidBarracks([start,LADDER_LAYOUT.base]);
+  const waypoints:[number,number,number][]=groundPath.map(p=>[p[0],LADDER_LAYOUT.groundY,p[1]]);
+  const climbSteps=4;
+  for(let i=1;i<=climbSteps;i++){
+   const u=i/climbSteps;
+   const lx=LADDER_LAYOUT.base[0]+(LADDER_LAYOUT.top[0]-LADDER_LAYOUT.base[0])*u;
+   const lz=LADDER_LAYOUT.base[1]+(LADDER_LAYOUT.top[1]-LADDER_LAYOUT.base[1])*u;
+   const ly=LADDER_LAYOUT.groundY+(LADDER_LAYOUT.deckFloorY-LADDER_LAYOUT.groundY)*u;
+   waypoints.push([lx,ly,lz]);
+  }
+  waypoints.push([bed.pos[0],LADDER_LAYOUT.deckFloorY,LADDER_LAYOUT.top[1]]);
+  waypoints.push([bed.pos[0],LADDER_LAYOUT.deckFloorY,bed.pos[2]]);
+  return waypoints;
+ }else{
+  const doorApproach:WalkPoint=[3.85,-9.2],doorInside:WalkPoint=[4.5,-10.5];
+  const groundPath=avoidBarracks([start,doorApproach]);
+  const waypoints:[number,number,number][]=groundPath.map(p=>[p[0],0.015,p[1]]);
+  waypoints.push([doorInside[0],0.18,doorInside[1]]);
+  waypoints.push([bed.pos[0],bed.pos[1],bed.pos[2]]);
+  return waypoints;
+ }
+}
 export type WalkPoint=[number,number];
 export type WalkBounds={minX:number;maxX:number;minZ:number;maxZ:number};
 /** Includes roof projection and a full character radius, not just the building origin. */

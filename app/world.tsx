@@ -13,6 +13,7 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {createRumuDeck} from './guild-buildings';
 import {getRumuMilestone} from './milestones';
+import {getBedForResident,routeToBed,LADDER_LAYOUT,ALL_BED_TARGETS} from './guild-building-layout';
 
 export const RUMU_ARU_LORE = [
  {speaker:'Aru',role:'Pengurus Guild',text:'Barak sudah berdiri! Anggota guild punya tempat berlindung yang layak sekarang.'},
@@ -30,6 +31,7 @@ export const RUMU_ARU_LORE = [
 
 export default function World({night,focus,onSelect,onFollow,residents,world=EMPTY_WORLD,totalMembers=1}:{night:boolean;focus:string;onSelect:(v:string)=>void;onFollow:(bed:string)=>void;world?:WorldProgress;residents:{name:string;role:string;color:string;activity:string;lastAction?:number;bed:string;outfit?:Loadout;gender?:Gender|null;hairStyle?:HairStyle;skinTone?:SkinTone}[];totalMembers?:number}){
  const memberCountRef=useRef(totalMembers);memberCountRef.current=totalMembers;
+ const nightRef=useRef(night);nightRef.current=night;
  const syncRumu=useRef<(()=>void)|null>(null);
  useEffect(()=>{syncRumu.current?.();},[totalMembers]);
  const follow=useRef<string|null>(null);
@@ -428,21 +430,38 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    // === Simulasi Warga & Aktivitas Peran Dinamis ===
    const actors=citizens.current.children;const slots=workSlots(actors.map(o=>o.userData.resident),now);
    actors.forEach((o,i)=>{const r=o.userData.resident,m=o.userData.motion as MotionState,rig=o.userData.rig,kit=o.userData.activityKit as ActivityKit;if(!rig||!m||!kit)return;
-    const beforeX=o.position.x,beforeZ=o.position.z;let moving=false;
-    const roleSpecialty=r.role?(ROLE_SPECIALTIES[r.role]||'guard'):'guard';
-    if(reduced){const a=recentActivity(r,now),slot=slots.get(r.bed);if(a&&slot!==undefined){const [x,z]=dockPoint(a.impact,slot);o.position.set(x,.015,z);m.phase='work';m.action=a;}else{const [x,z]=ringPoint(m.angle,m.rx,m.rz);o.position.set(x,.015,z);m.phase=a?'queue':'stroll';m.action=undefined;}}
-    else{const result=advanceMotion(m,[beforeX,beforeZ],r,slots.get(r.bed),now,dt);o.position.set(result.position[0],.015+(result.moving?Math.abs(Math.sin(t*5.4+i))*.018:0),result.position[1]);moving=result.moving;}
-    let yaw=o.rotation.y;
-    if(m.phase==='work'&&m.action){yaw=stationFrame(m.action.impact,Math.max(0,m.slot)).yaw;}
-    else if(m.phase==='idle'){
-     // Saat idle peran: hadap ke arah api unggun dengan gerakan menoleh santai
-     const campFireX=-1.2,campFireZ=4.2;
-     yaw=Math.atan2(campFireX-o.position.x,campFireZ-o.position.z)+Math.sin(t*.45+i)*.32;
+    const isNight=nightRef.current,bedTarget=getBedForResident(i),a=recentActivity(r,now);
+    if(isNight&&!a){
+     let moving=false;
+     if(!o.userData.sleepPath&&!o.userData.isSleeping){o.userData.sleepPath=routeToBed([o.position.x,o.position.z],i);o.userData.isSleeping=false;}
+     if(o.userData.sleepPath&&o.userData.sleepPath.length>0){
+      const target=o.userData.sleepPath[0],dx=target[0]-o.position.x,dy=target[1]-o.position.y,dz=target[2]-o.position.z,horizDist=Math.hypot(dx,dz),step=Math.min(0.1,Math.max(0,dt))*1.65;
+      if(horizDist<=step&&Math.abs(dy)<=0.35){o.position.x=target[0];o.position.y=target[1];o.position.z=target[2];o.userData.sleepPath.shift();if(o.userData.sleepPath.length===0)o.userData.isSleeping=true;}
+      else{o.position.x+=(dx/(horizDist||1))*Math.min(horizDist,step);o.position.z+=(dz/(horizDist||1))*Math.min(horizDist,step);o.position.y+=dy*Math.min(1,dt*5.0);moving=true;o.rotation.y=Math.atan2(dx,dz);}
+      o.rotation.z=0;animateActivity(rig,kit,t+i,undefined,0,reduced,moving,false);
+     }else if(o.userData.isSleeping){
+      moving=false;o.position.x=bedTarget.pos[0];o.position.z=bedTarget.pos[2];
+      const sleepBedY=bedTarget.pos[1]+(bedTarget.location==='barracks'?0.35:0.25);
+      o.position.y=sleepBedY+Math.sin(t*1.6+i)*0.012;o.rotation.y=bedTarget.yaw;o.rotation.z=Math.PI/2;
+      animateActivity(rig,kit,t+i,undefined,0,reduced,false,false);
+     }
+    }else{
+     if(o.userData.isSleeping||o.userData.sleepPath){o.userData.isSleeping=false;o.userData.sleepPath=null;o.rotation.z=0;if(o.position.y>0.05)o.position.y=Math.max(0.015,o.position.y-dt*6.0);}
+     const beforeX=o.position.x,beforeZ=o.position.z;let moving=false;
+     const roleSpecialty=r.role?(ROLE_SPECIALTIES[r.role]||'guard'):'guard';
+     if(reduced){const a=recentActivity(r,now),slot=slots.get(r.bed);if(a&&slot!==undefined){const [x,z]=dockPoint(a.impact,slot);o.position.set(x,.015,z);m.phase='work';m.action=a;}else{const [x,z]=ringPoint(m.angle,m.rx,m.rz);o.position.set(x,.015,z);m.phase=a?'queue':'stroll';m.action=undefined;}}
+     else{const result=advanceMotion(m,[beforeX,beforeZ],r,slots.get(r.bed),now,dt);o.position.set(result.position[0],.015+(result.moving?Math.abs(Math.sin(t*5.4+i))*.018:0),result.position[1]);moving=result.moving;}
+     let yaw=o.rotation.y;
+     if(m.phase==='work'&&m.action){yaw=stationFrame(m.action.impact,Math.max(0,m.slot)).yaw;}
+     else if(m.phase==='idle'){
+      const campFireX=-1.2,campFireZ=4.2;
+      yaw=Math.atan2(campFireX-o.position.x,campFireZ-o.position.z)+Math.sin(t*.45+i)*.32;
+     }
+     else if(moving&&Math.hypot(o.position.x-beforeX,o.position.z-beforeZ)>.00001)yaw=Math.atan2(o.position.x-beforeX,o.position.z-beforeZ);
+     o.rotation.y+=Math.atan2(Math.sin(yaw-o.rotation.y),Math.cos(yaw-o.rotation.y))*(reduced?1:1-Math.exp(-Math.min(dt,.1)*8));
+     const activeId=m.phase==='work'?m.action?.id:(m.phase==='idle'?(m.idleAction as any):undefined);
+     animateActivity(rig,kit,t+i,activeId,m.workTime,reduced,moving,m.phase==='work');
     }
-    else if(moving&&Math.hypot(o.position.x-beforeX,o.position.z-beforeZ)>.00001)yaw=Math.atan2(o.position.x-beforeX,o.position.z-beforeZ);
-    o.rotation.y+=Math.atan2(Math.sin(yaw-o.rotation.y),Math.cos(yaw-o.rotation.y))*(reduced?1:1-Math.exp(-Math.min(dt,.1)*8));
-    const activeId=m.phase==='work'?m.action?.id:(m.phase==='idle'?(m.idleAction as any):undefined);
-    animateActivity(rig,kit,t+i,activeId,m.workTime,reduced,moving,m.phase==='work');
    });
 
    if(now-reportedAt>1000){
@@ -455,10 +474,18 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
      plant:'Merawat petak kebun',
      ward:'Menenangkan kristal sihir',
     };
-    setRows(actors.flatMap(o=>{
+    setRows(actors.flatMap((o,i)=>{
      const r=o.userData.resident,a=recentActivity(r,now),m=o.userData.motion as MotionState;
      if(a){
       return [{bed:r.bed,name:r.name,title:a.title,phase:({work:'Sedang bekerja',travel:'Menuju area',queue:'Menunggu giliran',return:'Kembali ke kamp'} as Record<string,string>)[m.phase]||'Beraktivitas'}];
+     }
+     if(nightRef.current){
+      const bedTarget=getBedForResident(i);
+      if(o.userData.isSleeping){
+       return [{bed:r.bed,name:r.name,title:'Tidur di '+bedTarget.bedName,phase:'Tidur di kasur'}];
+      }else{
+       return [{bed:r.bed,name:r.name,title:'Menuju '+bedTarget.bedName,phase:'Menuju ranjang'}];
+      }
      }
      const roleSpecialty=r.role?(ROLE_SPECIALTIES[r.role]||'guard'):'guard';
      if(m.phase==='idle'){

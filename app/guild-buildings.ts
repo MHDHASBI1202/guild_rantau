@@ -22,6 +22,20 @@ export function createRumuDeck(){
    box(bed,[1.04,.09,.51],[0,.245,0],'#dfcfab');box(bed,[.69,.035,.52],[.17,.31,0],ROLE_OPTIONS[n].color);box(bed,[.22,.085,.38],[-.37,.33,0],'#f2e6cc');box(bed,[.075,.36,.60],[-.54,.28,0],'#805e40');
   }
  }
+ // === Tangga Kayu ke Punggung Rumu (Ladder to Rumu Deck) ===
+ const ladder=new THREE.Group();ladder.name='deck-ladder';root.add(ladder);
+ const ladderLen=Math.hypot(1.15,3.15),ladderPitch=Math.atan2(3.15,1.15);
+ const ladderZ=-0.60,ladderWidth=0.62;
+ for(const sz of [-ladderWidth/2,ladderWidth/2]){
+  const beam=box(ladder,[ladderLen,.12,.08],[-3.18,1.60,ladderZ+sz],'#654b35');beam.rotation.z=-ladderPitch;
+  const rail=box(ladder,[ladderLen,.05,.05],[-3.18-Math.sin(ladderPitch)*.22,1.60+Math.cos(ladderPitch)*.22,ladderZ+sz],'#8b6947');rail.rotation.z=-ladderPitch;
+  box(ladder,[.12,.25,.12],[-3.75,.125,ladderZ+sz],'#503824');
+ }
+ for(let i=0;i<11;i++){
+  const u=(i+.5)/11,rx=-3.75+u*1.15,ry=.05+u*3.15;
+  box(ladder,[.07,.06,ladderWidth],[rx,ry,ladderZ],'#a07d54');
+ }
+ box(ladder,[.35,.10,ladderWidth+.15],[-2.60,3.15,ladderZ],'#8a6540');
  return root;
 }
 const GLYPHS:Record<string,string[]>={B:['11110','10001','10001','11110','10001','10001','11110'],A:['01110','10001','10001','11111','10001','10001','10001'],R:['11110','10001','10001','11110','10100','10010','10001'],K:['10001','10010','10100','11000','10100','10010','10001'],G:['01111','10000','10000','10111','10001','10001','01110'],U:['10001','10001','10001','10001','10001','10001','01110'],I:['11111','00100','00100','00100','00100','00100','11111'],L:['10000','10000','10000','10000','10000','10000','11111'],D:['11110','10001','10001','10001','10001','10001','11110']};

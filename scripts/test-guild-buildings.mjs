@@ -3,10 +3,24 @@ import * as THREE from 'three';
 import {loadGameModules} from './load-game-modules.mjs';
 const {motion:m,world:w,camp}=await loadGameModules();
 const {createRumuDeck,createGuildBarracks}=await import('../outputs/game-tests/guild-buildings.mjs');
-const {BARRACKS_LAYOUT:B,barracksWalkBounds,insideBarracks}=await import('../outputs/game-tests/guild-building-layout.mjs');
+const {BARRACKS_LAYOUT:B,barracksWalkBounds,insideBarracks,routeToBed,ALL_BED_TARGETS,LADDER_LAYOUT}=await import('../outputs/game-tests/guild-building-layout.mjs');
+assert.equal(ALL_BED_TARGETS.length,12);
+for(let i=0;i<ALL_BED_TARGETS.length;i++){
+ const path=routeToBed([10,0],i);
+ assert.ok(path.length>=3,'Each bed route has waypoints');
+ const last=path[path.length-1];
+ assert.equal(last[0],ALL_BED_TARGETS[i].pos[0]);
+ assert.equal(last[2],ALL_BED_TARGETS[i].pos[2]);
+ if(ALL_BED_TARGETS[i].location==='deck'||ALL_BED_TARGETS[i].location==='tent'){
+  assert.ok(path.some(p=>p[0]===LADDER_LAYOUT.base[0]&&p[2]===LADDER_LAYOUT.base[1]),'Deck bed route includes ladder base');
+  assert.ok(path.some(p=>p[1]>=3.20),'Deck bed climbs to upper deck level');
+ }
+}
 const deck=createRumuDeck(),beds=deck.children.filter(o=>o.name.startsWith('deck-bed-'));
 assert.equal(beds.length,6);assert.equal(new Set(beds.map(b=>b.userData.role)).size,6);
 for(const bed of beds){assert.equal(bed.position.y,3.2);const bounds=new THREE.Box3().setFromObject(bed);assert.ok(bounds.min.y>=3.2-1e-6&&bounds.max.x-bounds.min.x>1.1);assert.ok(Math.abs(bed.position.z)>1.5);}
+const ladder=deck.getObjectByName('deck-ladder');assert.ok(ladder,'Deck ladder must exist');assert.ok(ladder.children.length>=12,'Ladder must have side beams, rungs and handrails');
+const ladderBounds=new THREE.Box3().setFromObject(ladder);assert.ok(ladderBounds.min.y<=0.06&&ladderBounds.max.y>=3.1,'Ladder must span from ground to deck');
 const barracks=createGuildBarracks(true);assert.equal(barracks.root.position.x,4.5);assert.equal(barracks.root.position.z,-11);assert.equal(barracks.root.children.filter(o=>o.name.startsWith('barracks-bed-')).length,4);
 assert.equal(barracks.root.getObjectByName('BARAK GUILD').userData.labelText,'BARAK GUILD');assert.ok(barracks.light.intensity>0);assert.equal(createGuildBarracks(false).light.intensity,0);
 assert.ok(new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0),B.yaw).dot(new THREE.Vector3(-B.x,0,-B.z).normalize())>.999);
