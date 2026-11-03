@@ -2,20 +2,26 @@ export const BARRACKS_LAYOUT={x:4.5,z:-11,width:5.2,depth:5.4,eaves:2.83,ridge:3
 export const RUMU_DECK_LAYOUT={floorY:3.08,upperFloorY:3.20,centerX:-.25,length:4.9,wingDepth:1.48,wingZ:1.94} as const;
 export const RUMU_TERRACE_LAYOUT={minLevel:3,centerX:-3.675,length:1.95,depth:5.36,bedX:-3.65,bedZ:[-1.98,-.66,.66,1.98]} as const;
 export const WATCHTOWER_LAYOUT={x:-14.5,z:-12,yaw:Math.atan2(14.5,12),platformY:4.1,roofY:6.65} as const;
+export type TowerLayout={x:number;z:number;yaw:number;platformY:number;roofY:number};
+export type BarracksLayout={x:number;z:number;yaw:number;width:number;depth:number;eaves:number;ridge:number;roofWidth:number;roofDepth:number};
+export const WATCHTOWER_LAYOUTS:TowerLayout[]=[WATCHTOWER_LAYOUT,{...WATCHTOWER_LAYOUT,x:17,z:-12,yaw:Math.atan2(-17,12)},{...WATCHTOWER_LAYOUT,x:0,z:20,yaw:Math.PI}];
+export const BARRACKS_LAYOUTS:BarracksLayout[]=[BARRACKS_LAYOUT,{...BARRACKS_LAYOUT,x:4.5,z:-21,yaw:Math.atan2(-4.5,21)}];
+/** Walkable switchback stairs: ground, half landing, upper flight, deck entrance. */
+export const TOWER_STAIR_PATH:[number,number,number][]=[[-3.5,.015,2.8],[-3.5,2.05,-2],[-2.25,2.05,-2],[-2.25,4.1,.65],[-.85,4.1,.65]];
 export type WalkPoint=[number,number];
 export type WalkBounds={minX:number;maxX:number;minZ:number;maxZ:number};
 let stairsBounds:WalkBounds|undefined;
 export function setStairWalkBounds(bounds:WalkBounds|undefined){stairsBounds=bounds;loops.clear();}
-export function walkObstacles(){return [barracksWalkBounds(),watchtowerWalkBounds(),...(stairsBounds?[stairsBounds]:[])];}
+export function walkObstacles(){return [...BARRACKS_LAYOUTS.map(b=>barracksWalkBounds(.45,b)),...WATCHTOWER_LAYOUTS.map(t=>watchtowerWalkBounds(.45,t)),...(stairsBounds?[stairsBounds]:[])];}
 /** Includes the entrance stairs, roof, lantern posts and character clearance. */
-export function watchtowerWalkBounds(clearance=.45):WalkBounds{
- const t=WATCHTOWER_LAYOUT,c=Math.cos(t.yaw),s=Math.sin(t.yaw);
- const corners=[-2.4,2.4].flatMap(x=>[-2.4,3.5].map(z=>[t.x+x*c+z*s,t.z-x*s+z*c]));
+export function watchtowerWalkBounds(clearance=.45,t:TowerLayout=WATCHTOWER_LAYOUT):WalkBounds{
+ const c=Math.cos(t.yaw),s=Math.sin(t.yaw);
+ const corners=[-4.2,2.4].flatMap(x=>[-2.6,3.5].map(z=>[t.x+x*c+z*s,t.z-x*s+z*c]));
  return {minX:Math.min(...corners.map(p=>p[0]))-clearance,maxX:Math.max(...corners.map(p=>p[0]))+clearance,minZ:Math.min(...corners.map(p=>p[1]))-clearance,maxZ:Math.max(...corners.map(p=>p[1]))+clearance};
 }
 /** Includes roof projection and a full character radius, not just the building origin. */
-export function barracksWalkBounds(clearance=.45):WalkBounds{
- const b=BARRACKS_LAYOUT,c=Math.abs(Math.cos(b.yaw)),s=Math.abs(Math.sin(b.yaw));
+export function barracksWalkBounds(clearance=.45,b:BarracksLayout=BARRACKS_LAYOUT):WalkBounds{
+ const c=Math.abs(Math.cos(b.yaw)),s=Math.abs(Math.sin(b.yaw));
  const x=(b.roofWidth*c+b.roofDepth*s)/2+clearance,z=(b.roofWidth*s+b.roofDepth*c)/2+clearance;
  return {minX:b.x-x,maxX:b.x+x,minZ:b.z-z,maxZ:b.z+z};
 }

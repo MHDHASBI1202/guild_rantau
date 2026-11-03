@@ -11,9 +11,12 @@ import * as THREE from 'three';
 import {createAvatar,disposeAvatar} from './avatar-model';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
-import {createRumuDeck,setRumuDeckLevel,createDeckStairs,openOriginalCampWalkway} from './guild-buildings';
+import {createRumuDeck,setRumuDeckLevel,createDeckStairs,openOriginalCampWalkway,showWatchtowerInterior} from './guild-buildings';
+import {MAX_VISIBLE_MEMBERS} from './scene-limits';
+import {TowerReservations,startTowerVisit,advanceTowerVisit,type TowerVisit} from './tower-patrol';
+import {animateTowerVisit} from './tower-animation';
 import {getRumuMilestone} from './milestones';
-import {setStairWalkBounds,avoidBarracks,walkObstacles,WATCHTOWER_LAYOUT as T,type WalkBounds} from './guild-building-layout';
+import {setStairWalkBounds,avoidBarracks,walkObstacles,WATCHTOWER_LAYOUT as T,WATCHTOWER_LAYOUTS,type WalkBounds} from './guild-building-layout';
 import {animateRest,restoreRestGear} from './rest-animation';
 import {BedReservations,availableBeds,createRestFrame,updateRestFrame,stairBounds,startRest,advanceRest,type RestState,type RestFrame} from './rest-motion';
 
@@ -145,7 +148,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    lantern?:THREE.Object3D;
   }|null=null;
 
-  let restFrame:RestFrame|undefined,stairOwner:string|undefined;const reservations=new BedReservations(),stairs=createDeckStairs();stairs.root.visible=false;scene.add(stairs.root);
+  let restFrame:RestFrame|undefined,stairOwner:string|undefined;const reservations=new BedReservations(),towerReservations=new TowerReservations(),stairs=createDeckStairs();stairs.root.visible=false;scene.add(stairs.root);
   const restProps=():WalkBounds[]=>{const bounds:WalkBounds[]=forestTrees.map(tree=>({minX:tree.position.x-.5,maxX:tree.position.x+.5,minZ:tree.position.z-.5,maxZ:tree.position.z+.5}));for(const child of environment.current.children[0]?.children??[]){if(!child.name.startsWith('camp-')&&!['kolam','api-unggun'].includes(child.name))continue;const b=new THREE.Box3().setFromObject(child);if(!b.isEmpty())bounds.push({minX:b.min.x-.35,maxX:b.max.x+.35,minZ:b.min.z-.35,maxZ:b.max.z+.35});}return bounds;};
   new GLTFLoader().load('/assets/rumu.glb',g=>{
    if(dead)return;
@@ -436,23 +439,64 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    // === Simulasi Warga & Aktivitas Peran Dinamis ===
    if(restFrame&&rumu){rumu.updateMatrixWorld(true);updateRestFrame(restFrame,rumu.matrixWorld);stairs.update(restFrame);}
    const actors=citizens.current.children;if(stairOwner&&!actors.some(o=>o.userData.bed===stairOwner))stairOwner=undefined;reservations.sync(actors.map(o=>o.userData.bed),availableBeds(getRumuMilestone(memberCountRef.current).current.level));const slots=workSlots(actors.map(o=>o.userData.resident),now);
+   towerReservations.sync(actors.map(o=>o.userData.bed));
+   const patrolCandidates=[...actors].sort((left,right)=>{
+    const priority=(o:THREE.Object3D)=>recentActivity(o.userData.resident,now)?.id==='guard'?0:o.userData.resident.role==='Penjaga'?1:2;
+    return priority(left)-priority(right)||(priority(left)===0?(left.userData.resident.lastAction??0)-(right.userData.resident.lastAction??0):0)||(left.userData.nextTowerAt??0)-(right.userData.nextTowerAt??0);
+   });
+   for(const o of patrolCandidates){
+    const r=o.userData.resident,a=recentActivity(r,now);
+    if(o.userData.pendingTower&&a&&a.id!=='guard'){towerReservations.release(r.bed);o.userData.pendingTower=undefined;}
+    if(o.userData.towerVisit||o.userData.pendingTower)continue;
+    const manual=a?.id==='guard'&&o.userData.lastTowerAction!==r.lastAction;
+    const ambient=!a&&['Penjaga','Penjelajah'].includes(r.role)&&now>=(o.userData.nextTowerAt??0);
+    if(!manual&&!ambient)continue;
+    const tower=towerReservations.claim(r.bed,o.position);
+    if(tower!==undefined){o.userData.handoverTower=undefined;o.userData.pendingTower={tower,kind:manual?'guard':r.role==='Penjaga'?'guard':'inspection',stamp:manual?r.lastAction:0};}
+    else if(manual){
+     const existing=actors.find(other=>other.userData.towerVisit?.tower===o.userData.handoverTower);
+     if(!existing||existing.userData.towerVisit?.manual)o.userData.handoverTower=undefined;
+     if(o.userData.handoverTower===undefined){
+      const outgoing=actors.filter(other=>other.userData.towerVisit&&!other.userData.towerVisit.manual&&!other.userData.towerVisit.returning&&!other.userData.towerVisit.yielding&&recentActivity(other.userData.resident,now)?.id!=='guard').sort((a,b)=>a.position.distanceToSquared(o.position)-b.position.distanceToSquared(o.position))[0];
+      if(outgoing){outgoing.userData.towerVisit.yielding=true;o.userData.handoverTower=outgoing.userData.towerVisit.tower;}
+     }
+    }
+   }
    actors.forEach((o,i)=>{const r=o.userData.resident,m=o.userData.motion as MotionState,rig=o.userData.rig,kit=o.userData.activityKit as ActivityKit;if(!rig||!m||!kit)return;
+    o.userData.waitingTower=false;
     const a=recentActivity(r,now),assigned=reservations.owners.get(r.bed);let rest=o.userData.rest as RestState|undefined;
-    if(restFrame&&nightRef.current&&!a&&assigned&&!rest&&now>(o.userData.restRetryAt??0)){rest=startRest(o.position,assigned,restFrame,restProps());o.userData.rest=rest;o.userData.restRetryAt=now+5000;}
+    if(restFrame&&nightRef.current&&!a&&!o.userData.pendingTower&&!o.userData.towerVisit&&assigned&&!rest&&now>(o.userData.restRetryAt??0)){rest=startRest(o.position,assigned,restFrame,restProps());o.userData.rest=rest;o.userData.restRetryAt=now+5000;}
     if(restFrame&&rest){
      const next=rest.path[0],needsStairs=next&&(next.space==='stairs'||(next.space==='world'&&new THREE.Vector3(...next.pos).distanceTo(restFrame.stairsBase)<.05));
      if(needsStairs&&!stairOwner)stairOwner=r.bed;
      const waiting=!!needsStairs&&stairOwner!==r.bed;o.userData.waitingStairs=waiting;
-     const result=waiting?{moving:false,climbing:false,done:false}:advanceRest(rest,o.position,o.quaternion,restFrame,dt,nightRef.current&&!a);
+     const result=waiting?{moving:false,climbing:false,done:false}:advanceRest(rest,o.position,o.quaternion,restFrame,dt,nightRef.current&&!a&&!o.userData.pendingTower);
      if(stairOwner===r.bed&&!needsStairs)stairOwner=undefined;
      animateRest(rig,kit,rest,t+i,reduced,result.moving,result.climbing);
      if(!result.done)return;
      if(stairOwner===r.bed)stairOwner=undefined;restoreRestGear(o);o.userData.rest=undefined;o.rotation.set(0,o.rotation.y,0);m.stamp=0;m.phase='return';m.angle=ringAngle([o.position.x,o.position.z],m.rx,m.rz);m.path=avoidBarracks([[o.position.x,o.position.z],ringPoint(m.angle,m.rx,m.rz)]).slice(1);return;
     }
+    let visit=o.userData.towerVisit as TowerVisit|undefined;
+    if(o.userData.pendingTower&&!visit){
+     const pending=o.userData.pendingTower;visit=startTowerVisit(o.position,pending.tower,pending.kind,restProps());
+     if(visit){visit.manual=!!pending.stamp;o.userData.towerVisit=visit;if(pending.stamp)o.userData.lastTowerAction=pending.stamp;}
+     else{towerReservations.release(r.bed);o.userData.nextTowerAt=now+10000;}
+     o.userData.pendingTower=undefined;
+    }
+    o.userData.waitingTower=false;
+    if(visit){
+     if(a?.id==='guard'&&!visit.returning&&!visit.yielding&&o.userData.lastTowerAction!==r.lastAction){visit.manual=true;visit.kind='guard';visit.remaining=16;visit.watchElapsed=0;o.userData.lastTowerAction=r.lastAction;}
+     const result=advanceTowerVisit(visit,o.position,o.quaternion,dt,!a||a.id==='guard');
+     animateTowerVisit(rig,kit,visit,t+i,reduced,result.moving,result.climbing);
+     if(result.done){towerReservations.release(r.bed);o.userData.towerVisit=undefined;o.userData.nextTowerAt=now+45000+(i%4)*12000;m.stamp=0;m.phase='return';m.angle=ringAngle([o.position.x,o.position.z],m.rx,m.rz);m.path=avoidBarracks([[o.position.x,o.position.z],ringPoint(m.angle,m.rx,m.rz)]).slice(1);}
+     return;
+    }
+    if(a?.id==='guard'&&o.userData.lastTowerAction!==r.lastAction){o.userData.waitingTower=true;animateActivity(rig,kit,t+i,undefined,0,reduced,false,false);return;}
+     const roamingResident=a?.id==='guard'?{...r,lastAction:0}:r;
      const beforeX=o.position.x,beforeZ=o.position.z;let moving=false;
      const roleSpecialty=r.role?(ROLE_SPECIALTIES[r.role]||'guard'):'guard';
-     if(reduced){const a=recentActivity(r,now),slot=slots.get(r.bed);if(a&&slot!==undefined){const [x,z]=dockPoint(a.impact,slot);o.position.set(x,.015,z);m.phase='work';m.action=a;}else{const [x,z]=ringPoint(m.angle,m.rx,m.rz);o.position.set(x,.015,z);m.phase=a?'queue':'stroll';m.action=undefined;}}
-     else{const result=advanceMotion(m,[beforeX,beforeZ],r,slots.get(r.bed),now,dt);o.position.set(result.position[0],.015+(result.moving?Math.abs(Math.sin(t*5.4+i))*.018:0),result.position[1]);moving=result.moving;}
+     if(reduced){const a=recentActivity(roamingResident,now),slot=slots.get(r.bed);if(a&&slot!==undefined){const [x,z]=dockPoint(a.impact,slot);o.position.set(x,.015,z);m.phase='work';m.action=a;}else{const [x,z]=ringPoint(m.angle,m.rx,m.rz);o.position.set(x,.015,z);m.phase=a?'queue':'stroll';m.action=undefined;}}
+     else{const result=advanceMotion(m,[beforeX,beforeZ],roamingResident,slots.get(r.bed),now,dt);o.position.set(result.position[0],.015+(result.moving?Math.abs(Math.sin(t*5.4+i))*.018:0),result.position[1]);moving=result.moving;}
      let yaw=o.rotation.y;
      if(m.phase==='work'&&m.action){yaw=stationFrame(m.action.impact,Math.max(0,m.slot)).yaw;}
      else if(m.phase==='idle'){
@@ -478,7 +522,12 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
     setRows(actors.flatMap((o,i)=>{
      const r=o.userData.resident,a=recentActivity(r,now),m=o.userData.motion as MotionState;
      const rest=o.userData.rest as RestState|undefined;
+     const visit=o.userData.towerVisit as TowerVisit|undefined;
+     if(visit)return [{bed:r.bed,name:r.name,title:'Menara '+(visit.tower+1),phase:({approach:'Menuju pos jaga',climb:'Naik tangga menara',watch:visit.kind==='guard'?'Berjaga & mengamati':'Memeriksa pos & lentera',descend:'Turun tangga menara',return:'Kembali dari menara'} as Record<string,string>)[visit.phase]}];
+     if(o.userData.pendingTower&&rest)return [{bed:r.bed,name:r.name,title:'Menara '+(o.userData.pendingTower.tower+1),phase:'Bangun untuk giliran jaga'}];
+     if(o.userData.waitingTower)return [{bed:r.bed,name:r.name,title:'Menunggu pos tersedia',phase:'Antrean giliran jaga'}];
      if(rest){const phase=rest.phase==='sleep'?'Tidur di kasur':rest.phase==='rise'||rest.phase==='leave'?'Bangun dan kembali ke kamp':o.userData.waitingStairs?'Menunggu tangga':'Menuju ranjang';return [{bed:r.bed,name:r.name,title:rest.bed.bedName,phase}];}
+     if(a?.id==='guard'&&o.userData.lastTowerAction===r.lastAction)return [{bed:r.bed,name:r.name,title:'Ronda menara selesai',phase:'Kembali ke kamp'}];
      if(a){return [{bed:r.bed,name:r.name,title:a.title,phase:({work:'Sedang bekerja',travel:'Menuju area',queue:'Menunggu giliran',return:'Kembali ke kamp'} as Record<string,string>)[m.phase]||'Beraktivitas'}];}
      if(nightRef.current&&!a)return [{bed:r.bed,name:r.name,title:reservations.owners.has(r.bed)?'Menunggu jalur istirahat':'Belum ada kasur kosong',phase:'Menunggu tempat istirahat'}];
      const roleSpecialty=r.role?(ROLE_SPECIALTIES[r.role]||'guard'):'guard';
@@ -500,14 +549,14 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
   s.scene.fog=new THREE.FogExp2(night?'#344858':'#dce3ce',.009);
   s.hemi.intensity=night?1.2:2.4;s.sun.intensity=night?.6:3.4;s.sun.color.set(night?'#a4b9e0':'#fff0cb');
   (s.stars.material as THREE.PointsMaterial).opacity=night?.82:0;
-  const camp=campAnimRef.current;if(camp){camp.barracksLight.intensity=night?2.3:0;camp.barracksLanternMaterial.emissiveIntensity=night?.9:.08;for(const {light,material} of camp.watchtowerLights){light.intensity=night?(light.distance>10?12:3):0;material.emissiveIntensity=night?1.8:.15;}}
+  const camp=campAnimRef.current;if(camp){for(const b of camp.barracksLamps){b.light.intensity=night?2.3:0;b.lanternMaterial.emissiveIntensity=night?.9:.08;}for(const {light,material} of camp.watchtowerLights){light.intensity=night?(light.distance>10?12:3):0;material.emissiveIntensity=night?1.8:.15;}}
  },[night]);
 
- useEffect(()=>{const s=state.current;if(!s)return;towerFocus.current=focus==='tower';s.controls.autoRotate=focus==='world'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;follow.current=focus.startsWith('activity:')?focus.split(':')[1]:null;if(focus.startsWith('activity:')){/* Smooth following is applied by the render loop. */}else if(focus==='tower'){s.camera.position.set(T.x-11,11,T.z+11);s.controls.target.set(T.x,3.5,T.z);}else if(focus==='camp'){s.camera.position.set(12,15,16);s.controls.target.set(0,4,0);}else{s.camera.position.set(24,18,30);s.controls.target.set(0,3.5,0);}s.controls.update();},[focus]);
+ useEffect(()=>{const s=state.current;if(!s)return;towerFocus.current=focus.startsWith('tower');showWatchtowerInterior(environment.current,towerFocus.current?(Number(focus.split(':')[1])||0):undefined);s.controls.autoRotate=focus==='world'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;follow.current=focus.startsWith('activity:')?focus.split(':')[1]:null;if(focus.startsWith('activity:')){/* Smooth following is applied by the render loop. */}else if(focus.startsWith('tower')){const post=WATCHTOWER_LAYOUTS[Number(focus.split(':')[1])||0]??T;const inward=new THREE.Vector3(-post.x,0,-post.z).normalize(),side=new THREE.Vector3(inward.z,0,-inward.x),cameraPoint=new THREE.Vector3(post.x,0,post.z).addScaledVector(side,13).addScaledVector(inward,5);s.camera.position.set(cameraPoint.x,11,cameraPoint.z);s.controls.target.set(post.x,3.5,post.z);}else if(focus==='camp'){s.camera.position.set(12,15,16);s.controls.target.set(0,4,0);}else{s.camera.position.set(24,18,30);s.controls.target.set(0,3.5,0);}s.controls.update();},[focus]);
 
- useEffect(()=>{const group=citizens.current,visible=residents.slice(0,12),beds=new Set(visible.map(r=>r.bed));for(const child of [...group.children])if(!beds.has(child.userData.bed)){disposeAvatar(child);group.remove(child);}
+ useEffect(()=>{const group=citizens.current,visible=residents.slice(0,MAX_VISIBLE_MEMBERS),beds=new Set(visible.map(r=>r.bed));for(const child of [...group.children])if(!beds.has(child.userData.bed)){disposeAvatar(child);group.remove(child);}
   visible.forEach((r,i)=>{const signature=JSON.stringify([r.role,r.color,r.gender,r.hairStyle,r.skinTone,r.outfit]);let existing=group.children.find(o=>o.userData.bed===r.bed);
-  const previousPose=existing?{position:existing.position.clone(),rotation:existing.quaternion.clone(),motion:existing.userData.motion,rest:existing.userData.rest,restRetryAt:existing.userData.restRetryAt}:undefined;
+  const previousPose=existing?{position:existing.position.clone(),rotation:existing.quaternion.clone(),motion:existing.userData.motion,rest:existing.userData.rest,restRetryAt:existing.userData.restRetryAt,towerVisit:existing.userData.towerVisit,pendingTower:existing.userData.pendingTower,nextTowerAt:existing.userData.nextTowerAt,lastTowerAction:existing.userData.lastTowerAction}:undefined;
   if(existing&&existing.userData.appearance!==signature){const previous=existing;existing=undefined;group.remove(previous);disposeAvatar(previous);}
   if(!existing){
    const rig=createAvatar(r),angle=i*Math.PI*2/visible.length;
@@ -516,7 +565,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    rig.root.position.set(x,.015,z);
    rig.root.userData.motion=motion;
    rig.root.userData.activityKit=createActivityKit(rig);
-   if(previousPose){rig.root.position.copy(previousPose.position);rig.root.quaternion.copy(previousPose.rotation);rig.root.userData.motion=previousPose.motion;rig.root.userData.rest=previousPose.rest;rig.root.userData.restRetryAt=previousPose.restRetryAt;}
+   if(previousPose){rig.root.position.copy(previousPose.position);rig.root.quaternion.copy(previousPose.rotation);rig.root.userData.motion=previousPose.motion;rig.root.userData.rest=previousPose.rest;rig.root.userData.restRetryAt=previousPose.restRetryAt;rig.root.userData.towerVisit=previousPose.towerVisit;rig.root.userData.pendingTower=previousPose.pendingTower;rig.root.userData.nextTowerAt=previousPose.nextTowerAt;rig.root.userData.lastTowerAction=previousPose.lastTowerAction;}
    rig.root.userData.appearance=signature;
    group.add(rig.root);
    existing=rig.root;
@@ -527,7 +576,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
  useEffect(()=>{const g=environment.current;
   while(g.children.length){const child=g.children[0];disposeAvatar(child);g.remove(child);}
   campAnimRef.current=null;
-  const {root:camp,anim}=createCampEnvironment(world,night);g.add(camp);campAnimRef.current=anim;pulse.current=null;
+  const {root:camp,anim}=createCampEnvironment(world,night);g.add(camp);showWatchtowerInterior(camp,focus.startsWith('tower')?(Number(focus.split(':')[1])||0):undefined);campAnimRef.current=anim;pulse.current=null;
   const changed=IMPACTS.find(i=>world[i.key]>previousWorld.current[i.key]);
   if(changed&&previousWorld.current.updatedAt&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const target=camp.getObjectByName('camp-'+changed.key);if(target){const ring=new THREE.Mesh(new THREE.RingGeometry(.65,.75,24),new THREE.MeshBasicMaterial({color:changed.color,transparent:true,opacity:1,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.copy(target.position);ring.position.y=.04;g.add(ring);pulse.current={mesh:ring,started:performance.now()};}}
   previousWorld.current=world;},[world]);
@@ -538,7 +587,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
    
    {/* Gelembung Suara / Lore & Penyemangat Aru & Rumu */}
    <div 
-    style={focus==='tower'?{display:'none'}:undefined}
+    style={focus.startsWith('tower')?{display:'none'}:undefined}
     className={`aru-lore-bubble ${loreVisible?'visible':'fading'}`}
     onClick={nextLore}
     role="button"
@@ -555,10 +604,10 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
     <p className="aru-lore-text">"{RUMU_ARU_LORE[loreIndex].text}"</p>
    </div>
 
-   <aside className="world-activity" style={focus==='tower'?{display:'none'}:undefined} aria-label="Aktivitas anggota di dunia">
+   <aside className="world-activity" style={focus.startsWith('tower')?{display:'none'}:undefined} aria-label="Aktivitas anggota di dunia">
     <b>{rows.length?`${rows.length} petualang terlihat`:'Kamp berjalan tenang'}</b>
     {rows.map(r=><button key={r.bed} onClick={()=>onFollow(r.bed)} aria-label={`Ikuti ${r.name}: ${r.title}`}><span>{r.name}</span><small>{r.phase} · {r.title}</small></button>)}
-    <small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota beraktivitas & berjalan santai di kamp.'} {availableBeds(getRumuMilestone(totalMembers).current.level).length} kasur bersama. Maks. 12 anggota tampil. Bukan status online.</small>
+    <small className="activity-footnote">{rows.length?'Klik nama untuk mengikuti.':'Anggota beraktivitas & berjalan santai di kamp.'} {availableBeds(getRumuMilestone(totalMembers).current.level).length} kasur bersama. Maks. {MAX_VISIBLE_MEMBERS} anggota tampil. Bukan status online.</small>
    </aside>
   </>
  );

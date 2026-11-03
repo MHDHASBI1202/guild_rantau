@@ -28,7 +28,7 @@ export const EMPTY_WORLD:WorldProgress={wood:0,herbs:0,defense:0,comfort:0,explo
 export const ACTIVITIES=[
  {id:'wood',title:'Cari kayu',activity:'Mengumpulkan kayu',xp:12,wood:1,herbs:0,impact:'wood'},
  {id:'herbs',title:'Cari daun obat',activity:'Meramu di tepi hutan',xp:12,wood:0,herbs:1,impact:'herbs'},
- {id:'guard',title:'Jaga kamp',activity:'Menjaga kamp bersama Aru',xp:15,wood:0,herbs:0,impact:'defense'},
+ {id:'guard',title:'Jaga menara',activity:'Menjaga kamp bersama Aru',xp:15,wood:0,herbs:0,impact:'defense'},
  {id:'rest',title:'Rawat tempat istirahat',activity:'Beristirahat dan merapikan ranjang',xp:5,wood:0,herbs:0,impact:'comfort'},
  {id:'explore',title:'Petakan jalur',activity:'Memetakan jalur perjalanan',xp:12,wood:0,herbs:0,impact:'exploration'},
  {id:'build',title:'Berkarya di bengkel',activity:'Membuat perlengkapan kamp',xp:12,wood:0,herbs:0,impact:'craft'},

@@ -1,13 +1,14 @@
 import * as THREE from 'three';
-import {BARRACKS_LAYOUT as B,RUMU_DECK_LAYOUT as D,RUMU_TERRACE_LAYOUT as E,walkObstacles,type WalkBounds,type WalkPoint} from './guild-building-layout';
+import {BARRACKS_LAYOUT as B,RUMU_DECK_LAYOUT as D,RUMU_TERRACE_LAYOUT as E,BARRACKS_LAYOUTS,walkObstacles,type WalkBounds,type WalkPoint} from './guild-building-layout';
 
 export type Point3=[number,number,number];
-export type BedTarget={id:string;location:'deck'|'barracks'|'tent';pos:Point3;heading:WalkPoint;bedName:string;minLevel?:number};
+export type BedTarget={id:string;location:'deck'|'barracks'|'tent';pos:Point3;heading:WalkPoint;bedName:string;barracksIndex?:number;minLevel?:number};
 // Surface centres in the owning model's coordinates. Original rolls were measured from rumu.glb.
 export const ALL_BED_TARGETS:BedTarget[]=[
  ...Array.from({length:6},(_,i)=>({id:'deck-'+i,location:'deck' as const,pos:[-1.75+(i%3)*1.5,D.upperFloorY+.3275,i<3?-1.98:1.98] as Point3,heading:[-1,0] as WalkPoint,bedName:'Deck Ranjang '+(i+1)})),
  ...Array.from({length:4},(_,i)=>({id:'barak-'+i,location:'barracks' as const,pos:[i%2?-1.55:1.55,.635,i<2?-1.2:1.2] as Point3,heading:[0,-1] as WalkPoint,bedName:'Barak Ranjang '+(i+1)})),
  ...[.40,1.13].map((x,i)=>({id:'tent-'+i,location:'tent' as const,pos:[x,3.24,.27] as Point3,heading:[0,-1] as WalkPoint,bedName:'Ranjang Awal '+(i+1)})),
+ ...Array.from({length:4},(_,i)=>({id:'barak-'+(4+i),location:'barracks' as const,barracksIndex:1,pos:[i%2?-1.55:1.55,.635,i<2?-1.2:1.2] as Point3,heading:[0,-1] as WalkPoint,bedName:'Barak 2 Ranjang '+(i+1)})),
  ...E.bedZ.map((z,i)=>({id:'deck-'+(6+i),location:'deck' as const,pos:[E.bedX,D.upperFloorY+.3275,z] as Point3,heading:[-1,0] as WalkPoint,bedName:'Teras Belakang '+(i+1),minLevel:E.minLevel})),
 ];
 export function availableBeds(level:number){return ALL_BED_TARGETS.filter(b=>level>=(b.minLevel??(b.location==='barracks'?1:2))).sort((a,b)=>(b.minLevel??0)-(a.minLevel??0));}
@@ -32,8 +33,8 @@ export function updateRestFrame(frame:RestFrame,matrix:THREE.Matrix4){frame.rumu
 export function stairBounds(frame:RestFrame):WalkBounds{return {minX:frame.stairsBase.x-STAIR_WIDTH/2-.4,maxX:frame.stairsBase.x+STAIR_WIDTH/2+.4,minZ:frame.stairsBase.z-.4,maxZ:frame.stairsTop.z+.4};}
 export type Waypoint={space:'world'|'rumu'|'stairs';pos:Point3};
 const point=(pos:Point3,space:Waypoint['space']='world'):Waypoint=>({space,pos});
-const barakMatrix=new THREE.Matrix4().makeRotationY(B.yaw).setPosition(B.x,0,B.z);
-export function bedMatrix(bed:BedTarget,frame:RestFrame){return bed.location==='barracks'?barakMatrix:frame.rumu;}
+const barracksMatrices=BARRACKS_LAYOUTS.map(b=>new THREE.Matrix4().makeRotationY(b.yaw).setPosition(b.x,0,b.z));
+export function bedMatrix(bed:BedTarget,frame:RestFrame){return bed.location==='barracks'?barracksMatrices[bed.barracksIndex??0]:frame.rumu;}
 export function resolvePoint(p:Waypoint,frame:RestFrame){
  if(p.space==='stairs'){const v=frame.stairsBase.clone().lerp(frame.stairsTop,p.pos[0]);v.y=frame.stairsBase.y+(frame.stairsTop.y-frame.stairsBase.y)*p.pos[0];return v;}
  const v=new THREE.Vector3(...p.pos);return p.space==='rumu'?v.applyMatrix4(frame.rumu):v;
@@ -63,7 +64,9 @@ export function groundRoute(start:WalkPoint,end:WalkPoint,props:WalkBounds[]=[])
  const result:WalkPoint[]=[];let a=start;while(raw.length){let i=raw.length-1;while(i>0&&!clear(a,raw[i]))i--;a=raw[i];result.push(a);raw.splice(0,i+1);}return result;
 }
 export function routeToBed(start:THREE.Vector3,bed:BedTarget,frame:RestFrame,props:WalkBounds[]=[]):Waypoint[]|undefined{
- const onDeck=bed.location!=='barracks',slot=bed.location==='tent'?6+Number(bed.id.at(-1)):Number(bed.id.at(-1)),entry=onDeck?frame.stairsBase.clone().add(new THREE.Vector3((slot%3-1)*1.1,0,-1.2-Math.floor(slot/3))):new THREE.Vector3(0,.015,B.depth/2+2.3).applyMatrix4(barakMatrix);
+ const barakMatrix=barracksMatrices[bed.barracksIndex??0];
+ const deckSlots=ALL_BED_TARGETS.filter(b=>b.location==='deck').length;
+ const onDeck=bed.location!=='barracks',slot=bed.location==='tent'?deckSlots+Number(bed.id.at(-1)):Number(bed.id.at(-1)),entry=onDeck?frame.stairsBase.clone().add(new THREE.Vector3((slot%3-1)*1.1,0,-1.2-Math.floor(slot/3))):new THREE.Vector3(0,.015,B.depth/2+2.3).applyMatrix4(barakMatrix);
  const ground=groundRoute([start.x,start.z],[entry.x,entry.z],props);if(!ground)return;
  const path=ground.map(([x,z])=>point([x,.015,z]));
  if(onDeck){path.push(point(frame.stairsBase.toArray()));for(let i=1;i<=STAIR_STEPS;i++)path.push(point([i/STAIR_STEPS,0,0],'stairs'));

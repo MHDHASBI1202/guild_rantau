@@ -15,14 +15,17 @@ function frameFor(multiplier=1.08){const scale=12/Math.max(size.x,size.z)*multip
 const frame=frameFor();layout.setStairWalkBounds(r.stairBounds(frame));
 const env=camp.createCampEnvironment({...world.EMPTY_WORLD,...Object.fromEntries(world.IMPACTS.map(i=>[i.key,6]))}).root;
 const props=env.children.filter(o=>o.name.startsWith('camp-')||['kolam','api-unggun'].includes(o.name)).map(o=>{const b=new T.Box3().setFromObject(o);return {minX:b.min.x-.35,maxX:b.max.x+.35,minZ:b.min.z-.35,maxZ:b.max.z+.35};});
+const staging=restStaging();
+function restStaging(){return r.ALL_BED_TARGETS.filter(b=>b.location!=='barracks').map(b=>{const path=r.routeToBed(new T.Vector3(9.8,.015,0),b,frame,props);assert.ok(path);const firstStair=path.findIndex(p=>p.space==='stairs');return path[firstStair-2].pos;});}
+assert.equal(new Set(staging.map(p=>JSON.stringify(p))).size,staging.length,'Every deck/tent bed gets its own ground waiting spot');
 const book=new r.BedReservations(),ids=Array.from({length:20},(_,i)=>'member-'+String(i).padStart(2,'0'));
-book.sync(ids,r.availableBeds(2));assert.equal(book.owners.size,12);assert.equal(new Set([...book.owners.values()].map(b=>b.id)).size,12);
+book.sync(ids,r.availableBeds(2));assert.equal(book.owners.size,16);assert.equal(new Set([...book.owners.values()].map(b=>b.id)).size,16);
 const before=[...book.owners].map(([id,b])=>[id,b.id]);book.sync([...ids].reverse(),r.availableBeds(2));assert.deepEqual([...book.owners].map(([id,b])=>[id,b.id]),before,'Polling order must not change beds');
-book.sync(ids.slice(1),r.availableBeds(2));assert.ok(book.owners.has('member-12'),'Vacancy goes to waiting member');
+book.sync(ids.slice(1),r.availableBeds(2));assert.ok(book.owners.has('member-16'),'Vacancy goes to waiting member');
 assert.ok(r.availableBeds(1).every(b=>b.location==='barracks'),'Invisible deck beds cannot be reserved');
 const deck=build.createRumuDeck();
 for(const bed of r.ALL_BED_TARGETS){if(bed.location==='tent'){const b=rolls[Number(bed.id.at(-1))];assert.ok(b.containsPoint(new T.Vector3(bed.pos[0],bed.pos[1]-1e-6,bed.pos[2])),'Original roll target must lie on real GLB bed');}
- else{const mesh=bed.location==='deck'?deck.getObjectByName('deck-bed-'+bed.id.at(-1)):env.getObjectByName('barracks-bed-'+bed.id.at(-1));const center=mesh.getWorldPosition(new T.Vector3());if(bed.location==='barracks')center.applyMatrix4(env.getObjectByName('barak').matrixWorld.clone().invert());assert.ok(Math.abs(center.x-bed.pos[0])<1e-5&&Math.abs(center.z-bed.pos[2])<1e-5,'Targets match actual bed geometry');}}
+ else{const mesh=bed.location==='deck'?deck.getObjectByName('deck-bed-'+bed.id.at(-1)):env.getObjectByName('barracks-bed-'+bed.id.at(-1));const center=mesh.getWorldPosition(new T.Vector3());if(bed.location==='barracks')center.applyMatrix4(env.getObjectByName(bed.barracksIndex?'barak-2':'barak').matrixWorld.clone().invert());assert.ok(Math.abs(center.x-bed.pos[0])<1e-5&&Math.abs(center.z-bed.pos[2])<1e-5,'Targets match actual bed geometry');}}
 const stairs=build.createDeckStairs();stairs.update(frame);const steps=stairs.root.children.filter(m=>m.geometry.parameters.width===r.STAIR_WIDTH);assert.equal(steps.length,r.STAIR_STEPS);assert.ok(Math.abs(steps[0].position.y-.05-(frame.stairsBase.y+(frame.stairsTop.y-frame.stairsBase.y)/r.STAIR_STEPS-.10))<1e-6);
 const {GLTFLoader}=await import('three/examples/jsm/loaders/GLTFLoader.js');const glbScene=(await new GLTFLoader().parseAsync(binary.buffer.slice(binary.byteOffset,binary.byteOffset+binary.byteLength),'')).scene;const campGroup=glbScene.getObjectByName('Camp_static_mesh');let beforeIndices=0;campGroup.traverse(o=>{if(o.isMesh)beforeIndices+=o.geometry.index.count;});build.openOriginalCampWalkway(glbScene);let afterIndices=0;campGroup.traverse(o=>{if(o.isMesh)afterIndices+=o.geometry.index.count;});assert.ok(afterIndices<beforeIndices,'Open internal rails for real original bedroll access');
 const restAnimation=await import('../outputs/game-tests/rest-animation.mjs');let poseCases=0;

@@ -1,5 +1,8 @@
 # Rumu level 3: rear terrace and watchtower lanterns
 
+Historical first rollout. The current counts, rendering budget and interactive
+stairs supersede this version; see [MULTI-TOWER-PATROLS.md](MULTI-TOWER-PATROLS.md).
+
 Requested outcome: expand the camp for level 3; MENARA won the community vote,
 and lanterns are included because observation and lighting are both important.
 This is not recorded as a tied vote and no vote counts are invented.

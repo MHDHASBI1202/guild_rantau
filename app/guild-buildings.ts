@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {ROLE_OPTIONS} from './role-options';
-import {BARRACKS_LAYOUT as B,RUMU_DECK_LAYOUT as D,RUMU_TERRACE_LAYOUT as E,WATCHTOWER_LAYOUT as T} from './guild-building-layout';
+import {BARRACKS_LAYOUT as B,RUMU_DECK_LAYOUT as D,RUMU_TERRACE_LAYOUT as E,WATCHTOWER_LAYOUT as T,TOWER_STAIR_PATH,type BarracksLayout,type TowerLayout} from './guild-building-layout';
 import {STAIR_WIDTH,STAIR_STEPS,type RestFrame} from './rest-motion';
 const material=(color:string)=>new THREE.MeshStandardMaterial({color,roughness:.9,flatShading:true});
 /** Ground-mounted steps: the foot stays on the ground, the landing follows Rumu. */
@@ -74,8 +74,9 @@ const GLYPHS:Record<string,string[]>={B:['11110','10001','10001','11110','10001'
 Object.assign(GLYPHS,{M:['10001','11011','10101','10101','10001','10001','10001'],E:['11111','10000','10000','11110','10000','10000','11111'],N:['10001','11001','11001','10101','10011','10011','10001'],T:['11111','00100','00100','00100','00100','00100','00100']});
 function signText(parent:THREE.Group,text='BARAK GUILD',height=3.08,depth=B.depth/2+.145,pixel=.041){const label=text,pixels:[number,number][]=[];let offset=0;for(const char of label){const glyph=GLYPHS[char];if(!glyph){offset+=3;continue;}glyph.forEach((row,y)=>[...row].forEach((p,x)=>{if(p==='1')pixels.push([offset+x,y]);}));offset+=6;}
  const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(pixel*.83,pixel*.83,.012),material('#fff1cb'),pixels.length),m=new THREE.Matrix4();pixels.forEach(([x,y],i)=>{m.makeTranslation((x-(offset-2)/2)*pixel,height+(3-y)*pixel,depth);mesh.setMatrixAt(i,m);});mesh.name=text;mesh.userData.labelText=text;parent.add(mesh);}
-export function createGuildBarracks(night=false){
- const root=new THREE.Group();root.name='barak';root.position.set(B.x,0,B.z);root.rotation.y=B.yaw;const box=builder();
+export function createGuildBarracks(night=false,layout:BarracksLayout=B,index=0){
+ const B=layout;
+ const root=new THREE.Group();root.name=index?'barak-'+(index+1):'barak';root.position.set(B.x,0,B.z);root.rotation.y=B.yaw;const box=builder();
  box(root,[B.width,.18,B.depth],[0,.09,0],'#9a7a52');
  box(root,[B.width,2.65,.14],[0,1.505,-(B.depth/2-.07)],'#8a6b48');for(const x of [-2.53,2.53])box(root,[.14,2.65,B.depth],[x,1.505,0],'#8a6b48');
  for(const x of [-1.6,1.6])box(root,[2,2.65,.14],[x,1.505,(B.depth/2-.07)],'#8a6b48');box(root,[1.2,.25,.14],[0,2.705,(B.depth/2-.07)],'#8a6b48');
@@ -83,8 +84,8 @@ export function createGuildBarracks(night=false){
  for(const z of [-(B.depth/2-.06),(B.depth/2-.06)]){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute([-2.6,B.eaves,z,2.6,B.eaves,z,0,B.ridge,z],3));geo.computeVertexNormals();const mat=material('#8a6b48');mat.side=THREE.DoubleSide;root.add(new THREE.Mesh(geo,mat));}
  const rise=B.ridge-B.eaves,half=B.roofWidth/2,slope=Math.atan2(rise,half);
  for(const side of [-1,1]){const roof=box(root,[Math.hypot(half,rise),.14,B.roofDepth],[side*half/2,(B.ridge+B.eaves)/2,0],'#ad8153');roof.rotation.z=-side*slope;roof.name=side<0?'roof-left':'roof-right';}
- box(root,[.16,.16,B.roofDepth],[0,B.ridge,0],'#654b35');box(root,[2.9,.48,.10],[0,3.08,(B.depth/2+.085)],'#654b35');signText(root);
- for(let i=0;i<4;i++){const bed=new THREE.Group();bed.name='barracks-bed-'+i;bed.position.set(i%2?-1.55:1.55,.18,i<2?-1.2:1.2);root.add(bed);
+ box(root,[.16,.16,B.roofDepth],[0,B.ridge,0],'#654b35');box(root,[2.9,.48,.10],[0,3.08,(B.depth/2+.085)],'#654b35');signText(root,'BARAK GUILD',3.08,B.depth/2+.145);
+ for(let i=0;i<4;i++){const bed=new THREE.Group();bed.name='barracks-bed-'+(i+index*4);bed.position.set(i%2?-1.55:1.55,.18,i<2?-1.2:1.2);root.add(bed);
   box(bed,[.86,.12,2.15],[0,.24,0],'#654b35');for(const x of [-.35,.35])for(const z of [-.96,.96])box(bed,[.09,.24,.09],[x,.12,z],'#654b35');box(bed,[.78,.11,2.07],[0,.355,0],'#d7c59f');box(bed,[.80,.04,1.43],[0,.435,.31],ROLE_OPTIONS[i].color);box(bed,[.60,.10,.24],[0,.46,-.82],'#f2e6cc');}
  box(root,[.065,.4,.065],[0,2.47,.40],'#654b35');const lanternMaterial=new THREE.MeshStandardMaterial({color:'#f5d788',emissive:'#ffb833',emissiveIntensity:night?.9:.08,flatShading:true});const lantern=new THREE.Mesh(new THREE.OctahedronGeometry(.17),lanternMaterial);lantern.position.set(0,2.15,.4);root.add(lantern);
  const light=new THREE.PointLight('#ffb833',night?2.3:0,7,2);light.position.copy(lantern.position);root.add(light);
@@ -92,8 +93,9 @@ export function createGuildBarracks(night=false){
 }
 
 /** Voting selected the tower; lanterns are included as a complementary upgrade. */
-export function createGuildWatchtower(night=false){
- const root=new THREE.Group();root.name='menara-lentera';root.position.set(T.x,0,T.z);root.rotation.y=T.yaw;
+export function createGuildWatchtower(night=false,layout:TowerLayout=T,index=0){
+ const T=layout;
+ const root=new THREE.Group();root.name=index?'menara-lentera-'+(index+1):'menara-lentera';root.userData.towerIndex=index;root.position.set(T.x,0,T.z);root.rotation.y=T.yaw;
  root.userData.votingWinner='MENARA';root.userData.includesLanterns=true;
  const box=builder(),lights:{light:THREE.PointLight;material:THREE.MeshStandardMaterial}[]=[];
  box(root,[4.2,.22,4.2],[0,.11,0],'#8c8a76');
@@ -109,14 +111,25 @@ export function createGuildWatchtower(night=false){
   box(root,[3.4,.09,.09],[0,T.platformY+h,side*1.65],'#bd9765');
   box(root,[.09,.09,3.4],[side*1.65,T.platformY+h,0],'#bd9765');
  }
- // Access ladder stops at a real opening in the rear railing.
- const ladder=new THREE.Group();ladder.name='tower-access-ladder';ladder.position.set(0,0,-1.75);root.add(ladder);
- for(const x of [-.43,.43])box(ladder,[.10,T.platformY,.10],[x,T.platformY/2,0],'#70513a');
- for(let i=0;i<14;i++)box(ladder,[.92,.09,.12],[0,.25+i*(T.platformY-.25)/13,0],'#bd9765');
- // Split the rear rails around the ladder so the landing is not sealed shut.
- for(const child of [...root.children])if(child instanceof THREE.Mesh&&child.geometry instanceof THREE.BoxGeometry&&Math.abs(child.position.z+1.65)<.01&&child.position.y>T.platformY){root.remove(child);child.geometry.dispose();}
- for(const x of [-1.08,1.08])for(const h of [.4,.78])box(root,[1.15,.09,.09],[x,T.platformY+h,-1.65],'#bd9765');
+ // Two flights and solid landings, shared exactly with the patrol route.
+ const access=new THREE.Group();access.name='tower-access-stairs';root.add(access);
+ for(const [start,end] of [[TOWER_STAIR_PATH[0],TOWER_STAIR_PATH[1]],[TOWER_STAIR_PATH[2],TOWER_STAIR_PATH[3]]]){
+  const a=new THREE.Vector3(...start),b=new THREE.Vector3(...end),delta=b.clone().sub(a);
+  for(let i=1;i<=18;i++){const p=a.clone().lerp(b,i/18);const step=box(access,[1.12,.12,Math.abs(delta.z)/18+.06],[p.x,p.y-.06,p.z],'#b69262');step.name='tower-stair-tread';}
+  for(const side of [-1,1]){
+   const beam=box(access,[.08,delta.length()*.76,.08],a.clone().add(b).multiplyScalar(.5).add(new THREE.Vector3(side*.58,.85,0)).toArray() as [number,number,number],'#806043');beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.clone().normalize());
+   for(let i=1;i<4;i++){const p=a.clone().lerp(b,i/4);box(access,[.07,.85,.07],[p.x+side*.58,p.y+.425,p.z],'#806043');}
+  }
+ }
+ box(access,[2.4,.16,1.12],[-2.875,1.97,-2],'#ad885c');
+ box(access,[1.5,.16,1.12],[-1.55,4.02,.65],'#ad885c');
+ for(const x of [-3.9,-1.85])box(access,[.14,2.05,.14],[x,1.025,-2.4],'#70513a');
+ // Open only the left railing at the upper landing; close the old ladder gap.
+ for(const child of [...root.children])if(child instanceof THREE.Mesh&&Math.abs(child.position.x+1.65)<.01&&child.position.y>T.platformY&&child.geometry instanceof THREE.BoxGeometry&&child.geometry.parameters.depth>3){root.remove(child);child.geometry.dispose();}
+ for(const h of [.4,.78]){box(root,[.09,.09,1.75],[-1.65,T.platformY+h,-.825],'#bd9765');box(root,[.09,.09,.45],[-1.65,T.platformY+h,1.475],'#bd9765');}
  const roof=new THREE.Mesh(new THREE.ConeGeometry(2.7,1.25,4),material('#657c70'));roof.name='tower-roof';roof.position.y=T.roofY;roof.rotation.y=Math.PI/4;roof.castShadow=true;root.add(roof);
+ for(const x of [-1.4,1.4])box(root,[.16,.16,3.0],[x,6.05,0],'#70513a');
+ box(root,[2.96,.14,.14],[0,6.05,0],'#70513a');
  box(root,[2.85,.42,.12],[0,3.60,1.53],'#654b35');signText(root,'MENARA LENTERA',3.60,1.60,.028);
  function lantern(x:number,y:number,z:number,main=false){
   const cage=new THREE.Group();cage.name=main?'tower-main-lantern':'tower-entry-lantern';cage.position.set(x,y,z);root.add(cage);
@@ -124,10 +137,12 @@ export function createGuildWatchtower(night=false){
   const glass=new THREE.Mesh(new THREE.BoxGeometry(size,size*1.3,size),glow);cage.add(glass);
   for(const xx of [-1,1])for(const zz of [-1,1])box(cage,[.035,size*1.6,.035],[xx*size/2,0,zz*size/2],'#725239');
   for(const yy of [-1,1])box(cage,[size*1.25,.07,size*1.25],[0,yy*size*.8,0],'#725239');
-  if(main){box(cage,[.05,.62,.05],[0,.62,0],'#725239');const light=new THREE.PointLight('#ffbd58',night?12:0,15,2);light.position.copy(cage.position);root.add(light);lights.push({light,material:glow});}
-  else{const light=new THREE.PointLight('#ffc36a',night?3:0,5,2);light.position.copy(cage.position);root.add(light);lights.push({light,material:glow});}
+  if(main){box(cage,[.05,.32,.05],[0,.49,0],'#725239');const light=new THREE.PointLight('#ffbd58',night?12:0,15,2);light.position.copy(cage.position);root.add(light);lights.push({light,material:glow});}
+  else{const light=new THREE.PointLight('#ffc36a',night?3:0,5,2);light.position.copy(cage.position);/* Entrance lamps glow without extra GPU point lights. */lights.push({light,material:glow});}
  }
  lantern(0,5.35,0,true);
  for(const x of [-1.9,1.9]){box(root,[.12,2.2,.12],[x,1.1,2.5],'#70513a');box(root,[.35,.12,.35],[x,.06,2.5],'#8c8a76');lantern(x,2.35,2.5);}
  return {root,lights};
 }
+/** Close-up cutaway keeps the watching member visible; beams and lamp stay attached. */
+export function showWatchtowerInterior(root:THREE.Object3D,index?:number){root.traverse(node=>{if(node.name==='tower-roof')node.visible=node.parent?.userData.towerIndex!==index;});}

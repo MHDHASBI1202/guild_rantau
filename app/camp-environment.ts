@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import {BARRACKS_LAYOUTS,WATCHTOWER_LAYOUTS} from './guild-building-layout';
 import {createGuildBarracks,createGuildWatchtower} from './guild-buildings';
 import {visualCount,STATIONS,type ImpactKey,type WorldProgress} from './world-progress';
 
-export type CampAnim={flames:THREE.Mesh[];smokePool:THREE.Mesh[];emberLight:THREE.PointLight;pond:THREE.Mesh;barracksLight:THREE.PointLight;barracksLanternMaterial:THREE.MeshStandardMaterial;watchtowerLights:{light:THREE.PointLight;material:THREE.MeshStandardMaterial}[]};
+export type CampAnim={flames:THREE.Mesh[];smokePool:THREE.Mesh[];emberLight:THREE.PointLight;pond:THREE.Mesh;barracksLight:THREE.PointLight;barracksLanternMaterial:THREE.MeshStandardMaterial;barracksLamps:{light:THREE.PointLight;lanternMaterial:THREE.MeshStandardMaterial}[];watchtowerLights:{light:THREE.PointLight;material:THREE.MeshStandardMaterial}[]};
 
 /** Bounded visual growth; exact lifetime contributions remain in the database. */
 export function createCampEnvironment(progress:WorldProgress,night=false):{root:THREE.Group;anim:CampAnim}{
@@ -20,8 +21,8 @@ export function createCampEnvironment(progress:WorldProgress,night=false):{root:
  const farm=part('farm');for(let i=0;i<visualCount(progress.farm);i++){const x=(i%3)*.7,z=Math.floor(i/3)*.7;box(farm,[.6,.10,.6],[x,.02,z],'#907b53');box(farm,[.04,.36,.04],[x,.22,z],'#75965e');for(const side of [-1,1]){const leaf=new THREE.Mesh(new THREE.OctahedronGeometry(.22,0),mat('#9cbf78'));leaf.scale.set(1,.35,.5);leaf.rotation.z=side*.5;leaf.position.set(x+side*.12,.32,z);farm.add(leaf);}}
  const magic=part('magic');for(let i=0;i<visualCount(progress.magic);i++){const x=(i%3)*.7,z=Math.floor(i/3)*.7;const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.28,0),new THREE.MeshStandardMaterial({color:'#a9c4df',emissive:'#7a85c7',emissiveIntensity:.7,flatShading:true}));crystal.position.set(x,.6,z);crystal.scale.y=1.8;magic.add(crystal);box(magic,[.45,.16,.45],[x,.1,z],'#8e9a98');}
 
- const barracks=createGuildBarracks(night);root.add(barracks.root);
- const watchtower=createGuildWatchtower(night);root.add(watchtower.root);
+ const barracks=BARRACKS_LAYOUTS.map((b,i)=>createGuildBarracks(night,b,i));for(const b of barracks)root.add(b.root);
+ const towers=WATCHTOWER_LAYOUTS.map((t,i)=>createGuildWatchtower(night,t,i));for(const tower of towers)root.add(tower.root);
 
  // === Api unggun / Campfire — pusat kamp ===
  const fire=new THREE.Group();fire.name='api-unggun';fire.position.set(-1,0,3.5);root.add(fire);
@@ -51,5 +52,5 @@ export function createCampEnvironment(progress:WorldProgress,night=false):{root:
   s.userData.phaseOffset=i/8;root.add(s);return s;
  });
 
- return {root,anim:{flames,smokePool,emberLight,pond,barracksLight:barracks.light,barracksLanternMaterial:barracks.lanternMaterial,watchtowerLights:watchtower.lights}};
+ return {root,anim:{flames,smokePool,emberLight,pond,barracksLight:barracks[0].light,barracksLanternMaterial:barracks[0].lanternMaterial,barracksLamps:barracks,watchtowerLights:towers.flatMap(t=>t.lights)}};
 }
