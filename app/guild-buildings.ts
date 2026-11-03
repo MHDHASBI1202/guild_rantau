@@ -144,5 +144,3 @@ export function createGuildWatchtower(night=false,layout:TowerLayout=T,index=0){
  for(const x of [-1.9,1.9]){box(root,[.12,2.2,.12],[x,1.1,2.5],'#70513a');box(root,[.35,.12,.35],[x,.06,2.5],'#8c8a76');lantern(x,2.35,2.5);}
  return {root,lights};
 }
-/** Close-up cutaway keeps the watching member visible; beams and lamp stay attached. */
-export function showWatchtowerInterior(root:THREE.Object3D,index?:number){root.traverse(node=>{if(node.name==='tower-roof')node.visible=node.parent?.userData.towerIndex!==index;});}

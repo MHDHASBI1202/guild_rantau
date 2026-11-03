@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import {createAvatar,disposeAvatar} from './avatar-model';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
-import {createRumuDeck,setRumuDeckLevel,createDeckStairs,openOriginalCampWalkway,showWatchtowerInterior} from './guild-buildings';
+import {createRumuDeck,setRumuDeckLevel,createDeckStairs,openOriginalCampWalkway} from './guild-buildings';
 import {MAX_VISIBLE_MEMBERS} from './scene-limits';
 import {TowerReservations,startTowerVisit,advanceTowerVisit,type TowerVisit} from './tower-patrol';
 import {animateTowerVisit} from './tower-animation';
@@ -552,7 +552,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
   const camp=campAnimRef.current;if(camp){for(const b of camp.barracksLamps){b.light.intensity=night?2.3:0;b.lanternMaterial.emissiveIntensity=night?.9:.08;}for(const {light,material} of camp.watchtowerLights){light.intensity=night?(light.distance>10?12:3):0;material.emissiveIntensity=night?1.8:.15;}}
  },[night]);
 
- useEffect(()=>{const s=state.current;if(!s)return;towerFocus.current=focus.startsWith('tower');showWatchtowerInterior(environment.current,towerFocus.current?(Number(focus.split(':')[1])||0):undefined);s.controls.autoRotate=focus==='world'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;follow.current=focus.startsWith('activity:')?focus.split(':')[1]:null;if(focus.startsWith('activity:')){/* Smooth following is applied by the render loop. */}else if(focus.startsWith('tower')){const post=WATCHTOWER_LAYOUTS[Number(focus.split(':')[1])||0]??T;const inward=new THREE.Vector3(-post.x,0,-post.z).normalize(),side=new THREE.Vector3(inward.z,0,-inward.x),cameraPoint=new THREE.Vector3(post.x,0,post.z).addScaledVector(side,13).addScaledVector(inward,5);s.camera.position.set(cameraPoint.x,11,cameraPoint.z);s.controls.target.set(post.x,3.5,post.z);}else if(focus==='camp'){s.camera.position.set(12,15,16);s.controls.target.set(0,4,0);}else{s.camera.position.set(24,18,30);s.controls.target.set(0,3.5,0);}s.controls.update();},[focus]);
+ useEffect(()=>{const s=state.current;if(!s)return;towerFocus.current=focus.startsWith('tower');s.controls.autoRotate=focus==='world'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;follow.current=focus.startsWith('activity:')?focus.split(':')[1]:null;if(focus.startsWith('activity:')){/* Smooth following is applied by the render loop. */}else if(focus.startsWith('tower')){const post=WATCHTOWER_LAYOUTS[Number(focus.split(':')[1])||0]??T;const inward=new THREE.Vector3(-post.x,0,-post.z).normalize(),side=new THREE.Vector3(inward.z,0,-inward.x),cameraPoint=new THREE.Vector3(post.x,0,post.z).addScaledVector(side,13).addScaledVector(inward,5);s.camera.position.set(cameraPoint.x,6.4,cameraPoint.z);s.controls.target.set(post.x,3.5,post.z);}else if(focus==='camp'){s.camera.position.set(12,15,16);s.controls.target.set(0,4,0);}else{s.camera.position.set(24,18,30);s.controls.target.set(0,3.5,0);}s.controls.update();},[focus]);
 
  useEffect(()=>{const group=citizens.current,visible=residents.slice(0,MAX_VISIBLE_MEMBERS),beds=new Set(visible.map(r=>r.bed));for(const child of [...group.children])if(!beds.has(child.userData.bed)){disposeAvatar(child);group.remove(child);}
   visible.forEach((r,i)=>{const signature=JSON.stringify([r.role,r.color,r.gender,r.hairStyle,r.skinTone,r.outfit]);let existing=group.children.find(o=>o.userData.bed===r.bed);
@@ -576,7 +576,7 @@ export default function World({night,focus,onSelect,onFollow,residents,world=EMP
  useEffect(()=>{const g=environment.current;
   while(g.children.length){const child=g.children[0];disposeAvatar(child);g.remove(child);}
   campAnimRef.current=null;
-  const {root:camp,anim}=createCampEnvironment(world,night);g.add(camp);showWatchtowerInterior(camp,focus.startsWith('tower')?(Number(focus.split(':')[1])||0):undefined);campAnimRef.current=anim;pulse.current=null;
+  const {root:camp,anim}=createCampEnvironment(world,night);g.add(camp);campAnimRef.current=anim;pulse.current=null;
   const changed=IMPACTS.find(i=>world[i.key]>previousWorld.current[i.key]);
   if(changed&&previousWorld.current.updatedAt&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const target=camp.getObjectByName('camp-'+changed.key);if(target){const ring=new THREE.Mesh(new THREE.RingGeometry(.65,.75,24),new THREE.MeshBasicMaterial({color:changed.color,transparent:true,opacity:1,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.copy(target.position);ring.position.y=.04;g.add(ring);pulse.current={mesh:ring,started:performance.now()};}}
   previousWorld.current=world;},[world]);

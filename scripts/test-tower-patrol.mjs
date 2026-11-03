@@ -5,7 +5,6 @@ const {world,camp,motion,avatar,animation}=await loadGameModules();
 const patrol=await import('../outputs/game-tests/tower-patrol.mjs'),layout=await import('../outputs/game-tests/guild-building-layout.mjs'),rest=await import('../outputs/game-tests/rest-motion.mjs');
 const {animateTowerVisit}=await import('../outputs/game-tests/tower-animation.mjs');
 const {MAX_VISIBLE_MEMBERS}=await import('../outputs/game-tests/scene-limits.mjs');
-const {showWatchtowerInterior}=await import('../outputs/game-tests/guild-buildings.mjs');
 const environment=camp.createCampEnvironment({...world.EMPTY_WORLD,...Object.fromEntries(world.IMPACTS.map(i=>[i.key,6]))},true).root;
 assert.equal(MAX_VISIBLE_MEMBERS,20);assert.equal(layout.WATCHTOWER_LAYOUTS.length,3);assert.equal(layout.BARRACKS_LAYOUTS.length,2);assert.equal(rest.availableBeds(3).length,20);
 assert.equal(environment.children.filter(o=>o.name.startsWith('menara-lentera')).length,3);assert.equal(environment.children.filter(o=>o.name==='barak'||o.name==='barak-2').length,2);
@@ -15,9 +14,9 @@ for(const tower of environment.children.filter(o=>o.name.startsWith('menara-lent
  const bounds=new T.Box3().setFromObject(tower,true),safe=layout.watchtowerWalkBounds(.45,layout.WATCHTOWER_LAYOUTS[tower.userData.towerIndex]);
  assert.ok(bounds.min.x>=safe.minX&&bounds.max.x<=safe.maxX&&bounds.min.z>=safe.minZ&&bounds.max.z<=safe.maxZ);
 }
-showWatchtowerInterior(environment,1);
-environment.traverse(o=>{if(o.name==='tower-roof')assert.equal(o.visible,o.parent.userData.towerIndex!==1);});
-showWatchtowerInterior(environment);environment.traverse(o=>{if(o.name==='tower-roof')assert.equal(o.visible,true);});
+const roofs=[];environment.traverse(o=>{if(o.name==='tower-roof')roofs.push(o);});
+assert.equal(roofs.length,3,'Every tower has a roof');
+for(const roof of roofs){assert.equal(roof.visible,true);assert.equal(roof.material.transparent,false);assert.equal(roof.material.opacity,1);}
 const props=environment.children.filter(o=>o.name.startsWith('camp-')||['kolam','api-unggun'].includes(o.name)).map(o=>{const b=new T.Box3().setFromObject(o);return {minX:b.min.x-.35,maxX:b.max.x+.35,minZ:b.min.z-.35,maxZ:b.max.z+.35};});
 const book=new patrol.TowerReservations();
 for(let i=0;i<3;i++)assert.notEqual(book.claim('guard-'+i,new T.Vector3(9,.015,0)),undefined);
